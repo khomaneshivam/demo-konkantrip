@@ -14,13 +14,13 @@ const registerUser = async (req, res) => {
 
         // Check if email already exists
         const [existingUser] = await db.query(
-            "SELECT id FROM users WHERE email = ?",
-            [email]
+            "SELECT p_owner_id FROM property_owners WHERE email = ? OR phone = ?",
+            [email, phone]
         );
 
         if (existingUser.length > 0) {
             return res.status(400).json({
-                message: "Email already exists"
+                message: "User with this email or phone number already exists"
             });
         }
 
@@ -29,7 +29,7 @@ const registerUser = async (req, res) => {
 
         // Insert user
         await db.query(
-            `INSERT INTO users
+            `INSERT INTO property_owners
             (first_name, last_name, phone, email, password)
             VALUES (?, ?, ?, ?, ?)`,
             [first_name, last_name, phone, email, hashedPassword]
@@ -37,7 +37,7 @@ const registerUser = async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: "User registered successfully"
+            message: "Property owner registered successfully"
         });
 
     } catch (error) {
