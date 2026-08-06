@@ -1,13 +1,18 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 const bcrypt = require("bcrypt");
 
 const registerUser = async (req, res) => {
     try {
-        const { first_name, last_name, phone, email, password } = req.body || {};
+        const first_name = req.body?.first_name?.toString().trim();
+        const last_name = req.body?.last_name?.toString().trim();
+        const phone = req.body?.phone?.toString().trim();
+        const email = req.body?.email?.toString().trim().toLowerCase();
+        const password = req.body?.password?.toString();
 
         // Validation
         if (!first_name || !last_name || !phone || !email || !password) {
             return res.status(400).json({
+                success: false,
                 message: "All fields are required"
             });
         }
@@ -20,6 +25,7 @@ const registerUser = async (req, res) => {
 
         if (existingUser.length > 0) {
             return res.status(400).json({
+                success: false,
                 message: "User with this email or phone number already exists"
             });
         }

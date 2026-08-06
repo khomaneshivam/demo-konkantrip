@@ -1,4 +1,4 @@
-const db = require("../config/db");
+const db = require("../../config/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { insertLoginLog } = require("./loginLogs");
@@ -20,7 +20,10 @@ const createToken = (user) => {
 
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body || {};
+        const email = req.body?.email?.toString().trim().toLowerCase();
+        const password = req.body?.password;
+        const sessionId = req.headers["x-session-id"] || null;
+        const jwtId = req.headers["x-jwt-id"] || null;
 
         if (!email || !password) {
             await insertLoginLog(req, {
@@ -28,8 +31,8 @@ const loginUser = async (req, res) => {
                 email: email || null,
                 loginStatus: "FAILED",
                 failureReason: "Email and password are required",
-                sessionId: null,
-                jwtId: null
+                sessionId,
+                jwtId
             });
 
             return res.status(400).json({
@@ -39,7 +42,7 @@ const loginUser = async (req, res) => {
         }
 
         const [rows] = await db.query(
-            "SELECT p_owner_id, first_name, last_name, email, phone, password FROM property_owners WHERE email = ?",
+            "SELECT p_owner_id, first_name, last_name, email, phone, password FROM property_owners WHERE email = ? AND delete_status = FALSE LIMIT 1",
             [email]
         );
 
@@ -49,8 +52,8 @@ const loginUser = async (req, res) => {
                 email,
                 loginStatus: "FAILED",
                 failureReason: "Invalid email or password",
-                sessionId: null,
-                jwtId: null
+                sessionId,
+                jwtId
             });
 
             return res.status(401).json({
@@ -68,8 +71,8 @@ const loginUser = async (req, res) => {
                 email: user.email,
                 loginStatus: "FAILED",
                 failureReason: "Invalid email or password",
-                sessionId: null,
-                jwtId: null
+                sessionId,
+                jwtId
             });
 
             return res.status(401).json({
@@ -79,9 +82,6 @@ const loginUser = async (req, res) => {
         }
 
         const token = createToken(user);
-        const sessionId = req.headers["x-session-id"] || null;
-        const jwtId = req.headers["x-jwt-id"] || null;
-
         await insertLoginLog(req, {
             p_owner_id: user.p_owner_id,
             email: user.email,
