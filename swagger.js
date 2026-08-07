@@ -31,7 +31,7 @@ const errorResponse = (description) => ({
 const swaggerSpec = {
     openapi: "3.0.3",
     info: {
-        title: "Hospitality API",
+        title: "Evolware_Konkantrip API",
         version: "1.0.0",
         description: "REST API for property-owner accounts, administrators, properties, and property-owner login logs."
     },
