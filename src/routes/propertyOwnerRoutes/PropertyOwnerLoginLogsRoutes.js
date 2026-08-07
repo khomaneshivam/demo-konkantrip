@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getPropertyOwnerLoginLogs } = require('../../controller/auth/loginLogs');
+const { getPropertyOwnerLoginLogs } = require('../../controller/propertyOwnerController/loginLogs');
 const authMiddleware = require('../../middleware/authMiddleware');
 const { requireAdmin } = require('../../middleware/requireAdmin');
 

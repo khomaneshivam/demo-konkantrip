@@ -51,7 +51,7 @@ const swaggerSpec = {
         { name: "Profile", description: "Authenticated token profile." }
     ],
     paths: {
-        "/api/register": {
+        "/api/propertyowner/register": {
             post: {
                 tags: ["Property owner authentication"],
                 summary: "Register a property owner",
@@ -78,7 +78,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/login": {
+        "/api/propertyowner/login": {
             post: {
                 tags: ["Property owner authentication"],
                 summary: "Log in a property owner",
@@ -122,7 +122,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/update-password": {
+        "/api/propertyowner/update-password": {
             put: {
                 tags: ["Property owner authentication"],
                 summary: "Change the authenticated property owner's password",
@@ -208,7 +208,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/property_owner_login_logs": {
+        "/api/propertyowner/login_logs": {
             get: {
                 tags: ["Login logs"],
                 summary: "List property-owner login logs",

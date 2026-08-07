@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const { registerAdmin, loginAdmin } = require("../../controller/auth/adminAuth");
-const { getAdminLoginLogs } = require("../../controller/auth/adminLogs");
+const { registerAdmin, loginAdmin } = require("../../controller/adminController/adminAuthController");
+const { getAdminLoginLogs } = require("../../controller/adminController/adminLogs");
 const authMiddleware = require("../../middleware/authMiddleware");
 const { requireAdmin } = require("../../middleware/requireAdmin");
 

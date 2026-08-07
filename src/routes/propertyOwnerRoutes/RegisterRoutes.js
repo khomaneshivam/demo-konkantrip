@@ -1,15 +1,15 @@
 const express = require("express");
 const router = express.Router();
 
-const { loginUser } = require("../../controller/auth/login");
+const { registerUser } = require("../../controller/propertyOwnerController/register");
 
 /**
  * @openapi
- * /login:
+ * /register:
  *   post:
  *     tags:
  *       - Auth
- *     summary: Login a property owner with email and password
+ *     summary: Register a new user
  *     requestBody:
  *       required: true
  *       content:
@@ -17,18 +17,22 @@ const { loginUser } = require("../../controller/auth/login");
  *           schema:
  *             type: object
  *             properties:
+ *               first_name:
+ *                 type: string
+ *               last_name:
+ *                 type: string
+ *               phone:
+ *                 type: string
  *               email:
  *                 type: string
  *               password:
  *                 type: string
  *     responses:
- *       200:
- *         description: Login successful
+ *       201:
+ *         description: User registered successfully
  *       400:
  *         description: Bad request
- *       401:
- *         description: Unauthorized
  */
-router.post("/", loginUser);
+router.post("/", registerUser);
 
 module.exports = router;
