@@ -1,11 +1,11 @@
 const express = require("express");
-const authMiddleware = require("../../middlewares/authMiddleware");
+const authMiddleware = require("../../middleware/authMiddleware");
 const {
     createPropertyLocation,
     deletePropertyLocation,
     getPropertyLocation,
     updatePropertyLocation
-} = require("../../controllers/properties/propertyLocations");
+} = require("../../controller/properties/propertyLocations");
 
 const router = express.Router();
 
