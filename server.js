@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+<<<<<<< HEAD
 const helmet = require("helmet");
 const morgan = require("morgan");
 
@@ -92,10 +93,40 @@ app.use("/api/v1/inventory", inventoryRoutes);
 
 // User / Admin Profile Endpoint (v1 & Root)
 const profileHandler = (req, res) => {
+=======
+const registerUser = require("./src/routes/propertyOwnerRoutes/RegisterRoutes");
+const loginUser = require("./src/routes/propertyOwnerRoutes/LoginRoutes");
+const propertyOwnerLoginLogsRoutes = require("./src/routes/propertyOwnerRoutes/PropertyOwnerLoginLogsRoutes");
+const updatePasswordRoutes = require("./src/routes/propertyOwnerRoutes/UpdatePasswordRoutes");
+const propertiesRoutes = require("./src/routes/properties/PropertiesRoutes");
+const propertyLocationRoutes = require("./src/routes/properties/PropertyLocationRoutes");
+const adminAuthRoutes = require("./src/routes/adminRoutes/index");
+const authMiddleware = require("./src/middleware/authMiddleware");
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./swagger");
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+app.use(cookieParser());
+
+app.get("/api-docs.json", (req, res) => res.status(200).json(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api/propertyowner/register", registerUser);
+app.use("/api/propertyowner/login", loginUser);
+app.use("/api/propertyowner/update-password", updatePasswordRoutes);
+app.use("/api/propertyowner/login_logs", propertyOwnerLoginLogsRoutes);
+app.use("/api/properties", propertiesRoutes);
+app.use("/api/properties", propertyLocationRoutes);
+app.use("/api/admin", adminAuthRoutes);
+
+app.get("/profile", authMiddleware, (req, res) => {
+>>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
     res.status(200).json({
         success: true,
         data: req.user
     });
+<<<<<<< HEAD
 };
 app.get("/profile", authMiddleware, profileHandler);
 app.get("/api/profile", authMiddleware, profileHandler);
@@ -116,13 +147,19 @@ app.use((err, req, res, next) => {
         success: false,
         message: err.message || "Internal Server Error"
     });
+=======
+>>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 });
 
 if (require.main === module) {
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
+<<<<<<< HEAD
         console.log(`Server is running on port ${port}`);
         console.log(`API Documentation available at http://localhost:${port}/api-docs`);
+=======
+        console.log(`server is running on port ${port}`);
+>>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
     });
 }
 
