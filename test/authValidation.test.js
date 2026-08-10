@@ -1,6 +1,5 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const express = require("express");
 const {
     validateRegister,
     validateLogin,
@@ -9,20 +8,12 @@ const {
 
 // Helper function to test express-validator middleware chains
 const runValidation = async (validatorChain, body) => {
-    const app = express();
-    app.use(express.json());
-    app.post("/test", validatorChain, (req, res) => {
-        res.status(200).json({ success: true, message: "Validation passed" });
-    });
-
     let statusCode = 200;
-    let responseBody = null;
+    let responseBody = { success: true };
 
     const req = {
-        method: "POST",
-        url: "/test",
         headers: { "content-type": "application/json" },
-        body
+        body: { ...body }
     };
 
     const res = {
@@ -36,22 +27,17 @@ const runValidation = async (validatorChain, body) => {
         }
     };
 
-    let idx = 0;
-    const next = (err) => {
-        if (err) {
-            statusCode = 500;
-            responseBody = { error: err.message };
-            return;
-        }
-        idx++;
-        if (idx < validatorChain.length) {
-            validatorChain[idx](req, res, next);
-        } else {
-            res.status(200).json({ success: true, message: "Validation passed" });
-        }
-    };
+    for (const middleware of validatorChain) {
+        let nextCalled = false;
+        await middleware(req, res, () => {
+            nextCalled = true;
+        });
 
-    validatorChain[0](req, res, next);
+        // If response was sent (validation failed), stop pipeline
+        if (!nextCalled && statusCode !== 200) {
+            break;
+        }
+    }
 
     return { statusCode, responseBody };
 };
