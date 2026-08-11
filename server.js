@@ -26,8 +26,13 @@ const propertySubResourceRoutes = require("./src/routes/properties/propertySubRe
 // Room Routes
 const roomRoutes = require("./src/routes/rooms/roomRoutes");
 
+const path = require("path");
+
 // Inventory Routes
 const inventoryRoutes = require("./src/routes/inventory/inventoryRoutes");
+
+// Upload Routes
+const uploadRoutes = require("./src/routes/upload/uploadRoutes");
 
 // Middlewares
 const authMiddleware = require("./src/middlewares/authMiddleware");
@@ -94,6 +99,10 @@ app.use("/api/v1/rooms", roomRoutes);
 
 // Inventory, Calendar & Booking Controls (v1)
 app.use("/api/v1/inventory", inventoryRoutes);
+
+// Direct File Upload & Media Storage (v1)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/api/v1/upload", uploadRoutes);
 
 // User / Admin Profile Endpoint (v1 & Root)
 const profileHandler = (req, res) => {

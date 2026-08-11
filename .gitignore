@@ -142,3 +142,12 @@ exports/
 # Misc
 # ==================================================
 *.local
+
+# ==================================================
+# Requested Ignores
+# ==================================================
+coverage_result*
+DEVELOPER_DOCUMENTATION.md
+dummy_records.sql
+evolware_konkantrip.sql
+test/

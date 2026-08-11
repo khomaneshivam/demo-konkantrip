@@ -13,13 +13,14 @@ const { propertySubResourceTags, propertySubResourcePaths } = require("./src/doc
 const { roomTags, roomPaths } = require("./src/docs/rooms.swagger");
 const { inventoryTags, inventoryPaths } = require("./src/docs/inventory.swagger");
 const { adminDashboardTags, adminDashboardPaths } = require("./src/docs/adminDashboard.swagger");
+const uploadSwagger = require("./src/docs/upload.swagger");
 
 const swaggerSpec = {
     openapi: "3.0.3",
     info: {
         title: "KonkanTrip Hospitality Platform API",
         version: "1.0.0",
-        description: "Comprehensive REST API documentation for the KonkanTrip Hospitality Management System, covering Owners, Administrators, Lookups, Properties, Sub-resources, Rooms, Inventory, and Booking Controls."
+        description: "Comprehensive REST API documentation for the KonkanTrip Hospitality Management System, covering Owners, Administrators, Lookups, Properties, Sub-resources, Rooms, Inventory, Direct File Uploads, and Booking Controls."
     },
     servers: [
         {
@@ -36,7 +37,8 @@ const swaggerSpec = {
         ...propertySubResourceTags,
         ...roomTags,
         ...inventoryTags,
-        ...adminDashboardTags
+        ...adminDashboardTags,
+        { name: "File Uploads", description: "Direct file upload, media storage and instant asset linking endpoints" }
     ],
     paths: {
         ...authPaths,
@@ -47,7 +49,8 @@ const swaggerSpec = {
         ...propertySubResourcePaths,
         ...roomPaths,
         ...inventoryPaths,
-        ...adminDashboardPaths
+        ...adminDashboardPaths,
+        ...uploadSwagger.paths
     },
     components: {
         securitySchemes,
