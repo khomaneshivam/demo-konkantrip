@@ -1,6 +1,6 @@
 const db = require("../../config/db");
 const { v4: uuidv4 } = require("uuid");
-const { isAdmin } = require("../../middlewares/requireAdmin");
+const { isAdmin } = require("../../middlewares/roleMiddleware");
 
 const LOCATION_FIELDS = new Set([
     "address_line1",

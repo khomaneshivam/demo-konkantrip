@@ -1,13 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../../middleware/authMiddleware");
+const authMiddleware = require("../../middlewares/authMiddleware");
 const {
     getProperties,
     getPropertyById,
     createProperty,
     updateProperty,
     deleteProperty
-} = require("../../controller/properties/properties");
+} = require("../../controllers/properties/properties");
 
 router.get("/", getProperties);
 router.get("/:id", getPropertyById);

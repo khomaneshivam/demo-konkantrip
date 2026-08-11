@@ -12,6 +12,7 @@ const { propertyTags, propertyPaths } = require("./src/docs/properties.swagger")
 const { propertySubResourceTags, propertySubResourcePaths } = require("./src/docs/propertySubResources.swagger");
 const { roomTags, roomPaths } = require("./src/docs/rooms.swagger");
 const { inventoryTags, inventoryPaths } = require("./src/docs/inventory.swagger");
+const { adminDashboardTags, adminDashboardPaths } = require("./src/docs/adminDashboard.swagger");
 
 const swaggerSpec = {
     openapi: "3.0.3",
@@ -34,7 +35,8 @@ const swaggerSpec = {
         ...propertyTags,
         ...propertySubResourceTags,
         ...roomTags,
-        ...inventoryTags
+        ...inventoryTags,
+        ...adminDashboardTags
     ],
     paths: {
         ...authPaths,
@@ -44,7 +46,8 @@ const swaggerSpec = {
         ...propertyPaths,
         ...propertySubResourcePaths,
         ...roomPaths,
-        ...inventoryPaths
+        ...inventoryPaths,
+        ...adminDashboardPaths
     },
     components: {
         securitySchemes,

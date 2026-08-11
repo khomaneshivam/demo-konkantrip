@@ -1,20 +1,13 @@
-<<<<<<< HEAD
 /* =============================================================================
    DATABASE INITIALIZATION & CONFIGURATION
    ============================================================================= */
 
-=======
--- Initial schema for the Hospitality API.
--- Run this script against a new MySQL 8.0+ database. Existing installations
--- should use a versioned migration rather than editing tables in place.
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 CREATE DATABASE IF NOT EXISTS konkantrip
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
 USE konkantrip;
 
-<<<<<<< HEAD
 SET FOREIGN_KEY_CHECKS = 0;
 
 /* =============================================================================
@@ -75,8 +68,6 @@ DROP TABLE IF EXISTS property_owners;
    SECTION 1: CORE AUTHENTICATION & USERS
    ============================================================================= */
 
-=======
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 CREATE TABLE IF NOT EXISTS property_owners (
     p_owner_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     uuid CHAR(36) NOT NULL DEFAULT (UUID()),
@@ -94,14 +85,10 @@ CREATE TABLE IF NOT EXISTS property_owners (
     UNIQUE KEY uq_property_owners_phone (phone),
     UNIQUE KEY uq_property_owners_email (email),
     KEY idx_property_owners_delete_status (delete_status)
-<<<<<<< HEAD
 )
 ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
-=======
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 
 CREATE TABLE IF NOT EXISTS admin (
     admin_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -120,7 +107,6 @@ CREATE TABLE IF NOT EXISTS admin (
     UNIQUE KEY uq_admin_phone (phone),
     UNIQUE KEY uq_admin_email (email),
     KEY idx_admin_delete_status (delete_status)
-<<<<<<< HEAD
 )
 ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
@@ -1164,9 +1150,6 @@ COLLATE=utf8mb4_unicode_ci;
 /* =============================================================================
    SECTION 4: CORE PROPERTY ENTITY
    ============================================================================= */
-=======
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 
 CREATE TABLE IF NOT EXISTS properties (
     property_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1213,7 +1196,6 @@ CREATE TABLE IF NOT EXISTS properties (
     KEY idx_properties_owner_status (p_owner_id, property_status),
     KEY idx_properties_discovery (delete_status, is_verified, is_featured, property_status),
     KEY idx_properties_created_at (created_at)
-<<<<<<< HEAD
 )
 ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
@@ -1226,9 +1208,6 @@ COLLATE=utf8mb4_unicode_ci;
 /* =============================================================================
    SECTION 5: PROPERTY CHILD & DETAIL TABLES
    ============================================================================= */
-=======
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b
 
 CREATE TABLE IF NOT EXISTS property_locations (
     location_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1266,7 +1245,6 @@ CREATE TABLE IF NOT EXISTS property_locations (
     KEY idx_property_locations_state (state),
     KEY idx_property_locations_district (district),
     KEY idx_property_locations_geohash (geohash)
-<<<<<<< HEAD
 )
 ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
@@ -3695,50 +3673,3 @@ DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
-=======
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS property_owner_login_logs (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    p_owner_id BIGINT UNSIGNED NULL,
-    email VARCHAR(255) NULL,
-    login_status ENUM('SUCCESS', 'FAILED') NOT NULL,
-    failure_reason VARCHAR(255) NULL,
-    ip_address VARCHAR(45) NULL,
-    user_agent TEXT NULL,
-    device_type VARCHAR(100) NULL,
-    browser VARCHAR(100) NULL,
-    operating_system VARCHAR(100) NULL,
-    login_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    logout_time TIMESTAMP NULL,
-    session_id VARCHAR(255) NULL,
-    jwt_id VARCHAR(255) NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_property_owner_login FOREIGN KEY (p_owner_id)
-        REFERENCES property_owners(p_owner_id) ON UPDATE CASCADE ON DELETE SET NULL,
-    KEY idx_owner_login_logs_owner_time (p_owner_id, created_at),
-    KEY idx_owner_login_logs_email_time (email, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS admin_logs (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    admin_id BIGINT UNSIGNED NULL,
-    email VARCHAR(255) NULL,
-    login_status ENUM('SUCCESS', 'FAILED') NOT NULL,
-    failure_reason VARCHAR(255) NULL,
-    ip_address VARCHAR(45) NULL,
-    user_agent TEXT NULL,
-    device_type VARCHAR(100) NULL,
-    browser VARCHAR(100) NULL,
-    operating_system VARCHAR(100) NULL,
-    login_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    logout_time TIMESTAMP NULL,
-    session_id VARCHAR(255) NULL,
-    jwt_id VARCHAR(255) NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_admin_login FOREIGN KEY (admin_id)
-        REFERENCES admin(admin_id) ON UPDATE CASCADE ON DELETE SET NULL,
-    KEY idx_admin_logs_admin_time (admin_id, created_at),
-    KEY idx_admin_logs_email_time (email, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
->>>>>>> c91ab28b7a65ab40129a5b1399ce760388fa3d4b

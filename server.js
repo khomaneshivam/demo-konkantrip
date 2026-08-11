@@ -11,6 +11,7 @@ const propertyOwnerLoginRoutes = require("./src/routes/auth/propertyOwnerLoginRo
 const propertyOwnerLoginLogsRoutes = require("./src/routes/auth/propertyOwnerLoginLogsRoutes");
 const propertyOwnerUpdatePasswordRoutes = require("./src/routes/auth/propertyOwnerUpdatePasswordRoutes");
 const adminAuthRoutes = require("./src/routes/auth/adminAuthRoutes");
+const adminDashboardRoutes = require("./src/routes/admin/adminDashboardRoutes");
 
 // Lookup Routes
 const masterLookupRoutes = require("./src/routes/lookups/masterLookupRoutes");
@@ -73,6 +74,10 @@ app.use("/api/v1/login", propertyOwnerLoginRoutes);
 app.use("/api/v1/update-password", propertyOwnerUpdatePasswordRoutes);
 app.use("/api/v1/property_owner_login_logs", propertyOwnerLoginLogsRoutes);
 app.use("/api/v1/admin", adminAuthRoutes);
+
+// Admin Dashboard Routes (v1)
+const { requireAdmin } = require("./src/middlewares/roleMiddleware");
+app.use("/api/v1/admin/dashboard", authMiddleware, requireAdmin, adminDashboardRoutes);
 
 // Master Lookups & Catalogs (v1)
 app.use("/api/v1/lookups/master", masterLookupRoutes);
