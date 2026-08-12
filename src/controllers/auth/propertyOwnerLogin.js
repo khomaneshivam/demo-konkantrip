@@ -5,7 +5,11 @@ const { insertLoginLog } = require("./propertyOwnerLoginLogs");
 const tokenCache = require("../../utils/tokenCache");
 require("dotenv").config();
 
-const createToken = (user) => {
+const createToken = (user, rememberMe = false) => {
+    const expiresIn = rememberMe
+        ? (process.env.JWT_REMEMBER_EXPIRE || "30d")
+        : (process.env.JWT_EXPIRE || "1d");
+
     return jwt.sign(
         {
             p_owner_id: user.p_owner_id,
@@ -16,7 +20,7 @@ const createToken = (user) => {
             role: "owner"
         },
         process.env.JWT_SECRET || "supersecretkey",
-        { expiresIn: process.env.JWT_EXPIRE || "1d" }
+        { expiresIn }
     );
 };
 
@@ -83,17 +87,20 @@ const loginUser = async (req, res) => {
             });
         }
 
-        const token = createToken(user);
-        
-        // Cache token in memory with user payload
-        tokenCache.set(token, {
+        const rememberMe = Boolean(req.body?.remember_me ?? req.body?.rememberMe);
+        const token = createToken(user, rememberMe);
+        const maxAgeMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+        const userPayload = {
             p_owner_id: user.p_owner_id,
-            email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
+            email: user.email,
             phone: user.phone,
             role: "owner"
-        });
+        };
+        
+        // Cache token in memory with corresponding TTL
+        tokenCache.set(token, userPayload, maxAgeMs);
 
         await insertLoginLog(req, {
             p_owner_id: user.p_owner_id,
@@ -108,21 +115,15 @@ const loginUser = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000
+            maxAge: maxAgeMs
         });
 
         res.status(200).json({
             success: true,
             message: "Login successful",
             token,
-            user: {
-                p_owner_id: user.p_owner_id,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                email: user.email,
-                phone: user.phone,
-                role: "owner"
-            }
+            user: userPayload,
+            remember_me: rememberMe
         });
     } catch (error) {
         console.error(error);

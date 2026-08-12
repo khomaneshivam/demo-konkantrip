@@ -1,4 +1,14 @@
+const path = require("path");
+const fs = require("fs").promises;
 const db = require("../../config/db");
+
+const cleanupUploadedFile = async (file) => {
+    if (file && file.path) {
+        try {
+            await fs.unlink(file.path);
+        } catch (_) {}
+    }
+};
 
 const getPropertyDocuments = async (req, res) => {
     try {
@@ -22,31 +32,43 @@ const getPropertyDocuments = async (req, res) => {
 const uploadPropertyDocument = async (req, res) => {
     try {
         const propertyId = req.params.propertyId;
+        const body = req.body || {};
+        const file = req.file;
+
+        let original_file_name = file ? file.originalname : body.original_file_name;
+        let stored_file_name = file ? file.filename : body.stored_file_name;
+        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (original_file_name ? path.extname(original_file_name).toLowerCase() : null));
+        let mime_type = file ? file.mimetype : body.mime_type;
+        let file_size = file ? file.size : body.file_size;
+
+        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
+        const protocol = req.protocol || "http";
+        const generatedUrl = file ? `${protocol}://${host}/uploads/documents/${file.filename}` : null;
+        const generatedPath = file ? `/uploads/documents/${file.filename}` : null;
+
         const {
-            document_type_id,
+            document_type_id = 1,
             document_number,
-            document_title,
+            document_title = original_file_name || "Document",
             document_description,
-            original_file_name,
-            stored_file_name,
-            file_extension,
-            mime_type,
-            file_size,
-            storage_provider = "AWS_S3",
-            storage_bucket,
-            storage_path,
-            cdn_url,
-            thumbnail_url,
+            storage_provider = file ? "Local_Disk" : (body.storage_provider || "Local_Disk"),
+            storage_bucket = file ? "uploads/documents" : (body.storage_bucket || "uploads/documents"),
+            storage_path = generatedPath || body.storage_path,
+            cdn_url = generatedUrl || body.cdn_url,
+            thumbnail_url = generatedUrl || body.thumbnail_url,
             checksum_sha256,
             issue_date,
             expiry_date,
             issued_by,
             issuing_authority,
             remarks
-        } = req.body;
+        } = body;
 
         if (!document_type_id || !original_file_name || !stored_file_name) {
-            return res.status(400).json({ success: false, message: "document_type_id, original_file_name, and stored_file_name are required" });
+            return res.status(400).json({
+                success: false,
+                message: "Document file or metadata (document_type_id, original_file_name, and stored_file_name) is required"
+            });
         }
 
         const [result] = await db.query(
@@ -69,8 +91,13 @@ const uploadPropertyDocument = async (req, res) => {
         );
 
         const [created] = await db.query("SELECT * FROM property_documents WHERE document_id = ?", [result.insertId]);
-        return res.status(201).json({ success: true, message: "Document uploaded", data: created[0] });
+        return res.status(201).json({
+            success: true,
+            message: "Document uploaded and submitted for verification successfully",
+            data: created[0]
+        });
     } catch (error) {
+        await cleanupUploadedFile(req.file);
         console.error("Error uploading property document:", error);
         return res.status(500).json({ success: false, message: error.sqlMessage || "Failed to upload document" });
     }

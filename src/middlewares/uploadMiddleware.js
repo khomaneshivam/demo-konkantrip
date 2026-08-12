@@ -33,26 +33,32 @@ const storage = multer.diskStorage({
     }
 });
 
-// File filter for images and documents
-const fileFilter = (req, file, cb) => {
-    const allowedMimeTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/webp',
-        'image/gif',
-        'image/avif',
-        'application/pdf'
-    ];
+// File filter for general uploads, images, and documents
+const ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/plain'
+];
 
-    if (allowedMimeTypes.includes(file.mimetype)) {
+const fileFilter = (req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        const error = new Error(`Unsupported file type: ${file.mimetype}. Allowed: JPG, PNG, WEBP, GIF, AVIF, PDF`);
+        const error = new Error(`Unsupported file type: ${file.mimetype}. Allowed: JPG, PNG, WEBP, GIF, AVIF, PDF, DOC, DOCX, XLS, XLSX, TXT`);
         error.status = 400;
         cb(error, false);
     }
 };
 
+// General upload middleware (10MB limit)
 const upload = multer({
     storage,
     fileFilter,
@@ -61,8 +67,34 @@ const upload = multer({
     }
 });
 
+// Dedicated document upload storage (defaults destination to 'documents')
+const documentStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const { targetDir } = getCategoryDirectory('documents');
+        cb(null, targetDir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const randomHex = crypto.randomBytes(8).toString('hex');
+        const timestamp = Date.now();
+        const safeName = `doc_${timestamp}_${randomHex}${ext}`;
+        cb(null, safeName);
+    }
+});
+
+// Dedicated document upload middleware (20MB limit for PDFs, scans, and licenses)
+const uploadDocument = multer({
+    storage: documentStorage,
+    fileFilter,
+    limits: {
+        fileSize: 20 * 1024 * 1024 // 20MB limit
+    }
+});
+
 module.exports = {
     upload,
+    uploadDocument,
     UPLOADS_ROOT,
-    getCategoryDirectory
+    getCategoryDirectory,
+    ALLOWED_MIME_TYPES
 };

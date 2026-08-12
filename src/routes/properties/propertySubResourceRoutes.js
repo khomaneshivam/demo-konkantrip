@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router({ mergeParams: true });
 const authMiddleware = require("../../middlewares/authMiddleware");
 const { requireOwnerOrAdmin, requirePropertyOwnership, requireAdmin } = require("../../middlewares/roleMiddleware");
+const { uploadDocument } = require("../../middlewares/uploadMiddleware");
 
 // Controllers
 const { getPropertyContacts, addPropertyContact, updatePropertyContact, deletePropertyContact } = require("../../controllers/properties/propertyContacts");
@@ -68,7 +69,7 @@ router.put("/:propertyId/statistics", authMiddleware, requirePropertyOwnership, 
 
 // Documents
 router.get("/:propertyId/documents", authMiddleware, requirePropertyOwnership, getPropertyDocuments);
-router.post("/:propertyId/documents", authMiddleware, requirePropertyOwnership, uploadPropertyDocument);
+router.post("/:propertyId/documents", authMiddleware, requirePropertyOwnership, uploadDocument.single("file"), uploadPropertyDocument);
 router.put("/:propertyId/documents/:documentId/verify", authMiddleware, requireAdmin, verifyPropertyDocument);
 router.delete("/:propertyId/documents/:documentId", authMiddleware, requirePropertyOwnership, deletePropertyDocument);
 

@@ -250,12 +250,25 @@ const propertySubResourcePaths = {
         },
         post: {
             tags: ["Property Sub-Resources"],
-            summary: "Upload compliance document",
+            summary: "Upload compliance document (Multipart form-data or JSON)",
             security: [{ BearerAuth: [] }],
             parameters: [{ name: "propertyId", in: "path", required: true, schema: { type: "integer" } }],
             requestBody: {
                 required: true,
                 content: {
+                    "multipart/form-data": {
+                        schema: {
+                            type: "object",
+                            properties: {
+                                file: { type: "string", format: "binary", description: "Document file (PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG max 20MB)" },
+                                document_type_id: { type: "integer", default: 1 },
+                                document_number: { type: "string", example: "LIC-2026-98765" },
+                                document_title: { type: "string", example: "Hotel Operation License" },
+                                document_description: { type: "string" },
+                                remarks: { type: "string" }
+                            }
+                        }
+                    },
                     "application/json": {
                         schema: {
                             type: "object",
@@ -270,7 +283,7 @@ const propertySubResourcePaths = {
                     }
                 }
             },
-            responses: { "201": { description: "Document uploaded." } }
+            responses: { "201": { description: "Document uploaded and submitted for verification." } }
         }
     },
     "/api/v1/properties/{propertyId}/documents/{documentId}/verify": {

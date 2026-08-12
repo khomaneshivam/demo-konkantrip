@@ -33,15 +33,21 @@ const inventoryRoutes = require("./src/routes/inventory/inventoryRoutes");
 
 // Upload Routes
 const uploadRoutes = require("./src/routes/upload/uploadRoutes");
+const db = require("./src/config/db");
 
 // Middlewares
 const authMiddleware = require("./src/middlewares/authMiddleware");
+const requestIdMiddleware = require("./src/middlewares/requestIdMiddleware");
+const { authLimiter, uploadLimiter, apiLimiter } = require("./src/middlewares/rateLimiter");
 
 // Documentation
 const swaggerUi = require("swagger-ui-express");
 const swaggerSpec = require("./swagger");
 
 const app = express();
+
+// Request Tracing & Correlation Header
+app.use(requestIdMiddleware);
 
 // Global Middlewares
 app.use(helmet({
@@ -62,20 +68,39 @@ if (process.env.NODE_ENV !== "test") {
 app.get("/api-docs.json", (req, res) => res.status(200).json(swaggerSpec));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Health Check Endpoint (Both Root and API v1)
-const healthHandler = (req, res) => {
-    res.status(200).json({
-        success: true,
-        message: "KonkanTrip Hospitality API v1 is running",
-        timestamp: new Date().toISOString()
-    });
+// Health Check Endpoint (Both Root and API v1) with Active Database Probe
+const healthHandler = async (req, res) => {
+    try {
+        await db.query("SELECT 1");
+        return res.status(200).json({
+            success: true,
+            status: "healthy",
+            database: "connected",
+            message: "KonkanTrip Hospitality API v1 is running",
+            timestamp: new Date().toISOString(),
+            requestId: req.id
+        });
+    } catch (error) {
+        return res.status(503).json({
+            success: false,
+            status: "unhealthy",
+            database: "disconnected",
+            message: "Database connection unavailable",
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            requestId: req.id
+        });
+    }
 };
 app.get("/api/health", healthHandler);
 app.get("/api/v1/health", healthHandler);
 
+// General API Rate Limiter
+app.use("/api/", apiLimiter);
+
 // Authentication & Account Routes (v1)
-app.use("/api/v1/register", propertyOwnerRegisterRoutes);
-app.use("/api/v1/login", propertyOwnerLoginRoutes);
+app.use("/api/v1/register", authLimiter, propertyOwnerRegisterRoutes);
+app.use("/api/v1/login", authLimiter, propertyOwnerLoginRoutes);
 app.use("/api/v1/update-password", propertyOwnerUpdatePasswordRoutes);
 app.use("/api/v1/property_owner_login_logs", propertyOwnerLoginLogsRoutes);
 app.use("/api/v1/admin", adminAuthRoutes);
@@ -102,7 +127,7 @@ app.use("/api/v1/inventory", inventoryRoutes);
 
 // Direct File Upload & Media Storage (v1)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-app.use("/api/v1/upload", uploadRoutes);
+app.use("/api/v1/upload", uploadLimiter, uploadRoutes);
 
 // User / Admin Profile Endpoint (v1 & Root)
 const profileHandler = (req, res) => {
@@ -134,10 +159,28 @@ app.use((err, req, res, next) => {
 
 if (require.main === module) {
     const port = process.env.PORT || 3000;
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
         console.log(`Server is running on port ${port}`);
         console.log(`API Documentation available at http://localhost:${port}/api-docs`);
     });
+
+    const shutdown = async (signal) => {
+        console.log(`\nReceived ${signal}. Gracefully shutting down server...`);
+        server.close(async () => {
+            console.log("HTTP server closed. Draining database connection pool...");
+            try {
+                if (db.end) {
+                    await db.end();
+                }
+            } catch (err) {
+                console.error("Error closing DB pool:", err);
+            }
+            process.exit(0);
+        });
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 module.exports = app;

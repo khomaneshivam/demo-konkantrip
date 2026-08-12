@@ -151,3 +151,5 @@ DEVELOPER_DOCUMENTATION.md
 dummy_records.sql
 evolware_konkantrip.sql
 test/
+uploads/
+scripts/

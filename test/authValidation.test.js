@@ -124,3 +124,26 @@ test("Validation: Rejects update password if new password is identical to old pa
     assert.equal(result.responseBody.success, false);
     assert.match(result.responseBody.message, /cannot be the same/i);
 });
+
+test("Validation: Accepts login with valid remember_me boolean flag", async () => {
+    const validWithRemember = {
+        email: "user@example.com",
+        password: "Secret@123",
+        remember_me: true
+    };
+    const res = await runValidation(validateLogin, validWithRemember);
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.responseBody.success, true);
+});
+
+test("Validation: Rejects login with invalid non-boolean remember_me flag", async () => {
+    const invalidRemember = {
+        email: "user@example.com",
+        password: "Secret@123",
+        remember_me: "not-a-boolean"
+    };
+    const res = await runValidation(validateLogin, invalidRemember);
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.responseBody.success, false);
+    assert.match(res.responseBody.message, /remember_me must be a boolean/i);
+});

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../../middlewares/authMiddleware');
 const { requirePropertyOwnership } = require('../../middlewares/roleMiddleware');
-const { upload } = require('../../middlewares/uploadMiddleware');
+const { upload, uploadDocument } = require('../../middlewares/uploadMiddleware');
 const uploadController = require('../../controllers/upload/uploadController');
 
 // Global Auth for all upload routes
@@ -31,7 +31,7 @@ router.post(
 router.post(
     '/property/:propertyId/document',
     requirePropertyOwnership,
-    upload.single('file'),
+    uploadDocument.single('file'),
     uploadController.uploadPropertyDocumentDirect
 );
 

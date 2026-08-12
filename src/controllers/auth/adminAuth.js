@@ -26,11 +26,15 @@ const buildAdminTokenPayload = (user) => ({
     role: "admin"
 });
 
-const createAdminToken = (user) => {
+const createAdminToken = (user, rememberMe = false) => {
+    const expiresIn = rememberMe
+        ? (process.env.JWT_REMEMBER_EXPIRE || "30d")
+        : (process.env.JWT_EXPIRE || "1d");
+
     return jwt.sign(
         buildAdminTokenPayload(user),
         process.env.JWT_SECRET || "supersecretkey",
-        { expiresIn: process.env.JWT_EXPIRE || "1d" }
+        { expiresIn }
     );
 };
 
@@ -138,11 +142,13 @@ const loginAdmin = async (req, res) => {
             });
         }
 
-        const token = createAdminToken(user);
+        const rememberMe = Boolean(req.body?.remember_me ?? req.body?.rememberMe);
+        const token = createAdminToken(user, rememberMe);
         const adminPayload = buildAdminTokenPayload(user);
+        const maxAgeMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
 
-        // Cache token in memory
-        tokenCache.set(token, adminPayload);
+        // Cache token in memory with corresponding TTL
+        tokenCache.set(token, adminPayload, maxAgeMs);
 
         await insertAdminLoginLog(req, {
             adminId: user.admin_id,
@@ -157,14 +163,15 @@ const loginAdmin = async (req, res) => {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000
+            maxAge: maxAgeMs
         });
 
         return res.status(200).json({
             success: true,
             message: "Admin login successful",
             token,
-            user: adminPayload
+            user: adminPayload,
+            remember_me: rememberMe
         });
     } catch (error) {
         console.error(error);

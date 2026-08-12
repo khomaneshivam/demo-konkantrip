@@ -1,9 +1,20 @@
 const path = require('path');
+const fs = require('fs').promises;
 const db = require('../../config/db');
 
+const cleanupUploadedFile = async (file) => {
+    if (file && file.path) {
+        try {
+            await fs.unlink(file.path);
+        } catch (_) {}
+    }
+};
+
 const buildFilePayload = (req, file) => {
-    const category = req.query.category || req.body.category || 'general';
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const category = req.query?.category || req.body?.category || 'general';
+    const host = (typeof req.get === 'function' ? req.get('host') : req.headers?.host) || 'localhost:5000';
+    const protocol = req.protocol || 'http';
+    const baseUrl = `${protocol}://${host}`;
     const relativePath = `/uploads/${category}/${file.filename}`;
     const fullUrl = `${baseUrl}${relativePath}`;
 
@@ -127,6 +138,7 @@ const uploadPropertyImageDirect = async (req, res) => {
             data: rows[0]
         });
     } catch (error) {
+        await cleanupUploadedFile(req.file);
         console.error('Error uploading property image:', error);
         return res.status(500).json({ success: false, message: error.sqlMessage || 'Failed to save property image' });
     }
@@ -188,6 +200,7 @@ const uploadRoomImageDirect = async (req, res) => {
             data: rows[0]
         });
     } catch (error) {
+        await cleanupUploadedFile(req.file);
         console.error('Error uploading room image:', error);
         return res.status(500).json({ success: false, message: error.sqlMessage || 'Failed to save room image' });
     }
@@ -244,6 +257,7 @@ const uploadPropertyDocumentDirect = async (req, res) => {
             data: rows[0]
         });
     } catch (error) {
+        await cleanupUploadedFile(req.file);
         console.error('Error uploading document:', error);
         return res.status(500).json({ success: false, message: error.sqlMessage || 'Failed to save document' });
     }
