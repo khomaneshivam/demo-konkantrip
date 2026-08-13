@@ -1,6 +1,7 @@
 const path = require("path");
 const fs = require("fs").promises;
 const db = require("../../config/db");
+const { normalizeStorageProvider } = require("../../middlewares/uploadMiddleware");
 
 const cleanupUploadedFile = async (file) => {
     if (file && file.path) {
@@ -51,8 +52,8 @@ const uploadPropertyDocument = async (req, res) => {
             document_number,
             document_title = original_file_name || "Document",
             document_description,
-            storage_provider = file ? "Local_Disk" : (body.storage_provider || "Local_Disk"),
-            storage_bucket = file ? "uploads/documents" : (body.storage_bucket || "uploads/documents"),
+            storage_provider = "LOCAL",
+            storage_bucket = "uploads/documents",
             storage_path = generatedPath || body.storage_path,
             cdn_url = generatedUrl || body.cdn_url,
             thumbnail_url = generatedUrl || body.thumbnail_url,
@@ -71,6 +72,8 @@ const uploadPropertyDocument = async (req, res) => {
             });
         }
 
+        const normalizedProvider = normalizeStorageProvider(storage_provider);
+
         const [result] = await db.query(
             `INSERT INTO property_documents (
                 property_id, document_type_id, document_number, document_title,
@@ -83,14 +86,14 @@ const uploadPropertyDocument = async (req, res) => {
             [
                 propertyId, document_type_id, document_number || null, document_title || null,
                 document_description || null, original_file_name, stored_file_name,
-                file_extension || null, mime_type || null, file_size || null, storage_provider,
-                storage_bucket || null, storage_path || null, cdn_url || null, thumbnail_url || null,
+                file_extension || null, mime_type || null, file_size || null, normalizedProvider,
+                storage_bucket || "uploads/documents", storage_path || null, cdn_url || null, thumbnail_url || null,
                 checksum_sha256 || null, issue_date || null, expiry_date || null, issued_by || null,
                 issuing_authority || null, remarks || null, req.user?.p_owner_id || req.user?.admin_id || null
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM property_documents WHERE document_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_documents WHERE document_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({
             success: true,
             message: "Document uploaded and submitted for verification successfully",
@@ -119,13 +122,13 @@ const verifyPropertyDocument = async (req, res) => {
 
         const [result] = await db.query(
             `UPDATE property_documents
-             SET verification_status = ?,
-                 verified_by = ?,
-                 verified_at = NOW(),
-                 rejection_reason = ?,
-                 verification_notes = ?,
-                 updated_by = ?
-             WHERE document_id = ? AND delete_status = FALSE`,
+              SET verification_status = ?,
+                  verified_by = ?,
+                  verified_at = NOW(),
+                  rejection_reason = ?,
+                  verification_notes = ?,
+                  updated_by = ?
+              WHERE document_id = ? AND delete_status = FALSE`,
             [verification_status, adminId, rejection_reason || null, verification_notes || null, adminId, documentId]
         );
 
@@ -133,7 +136,7 @@ const verifyPropertyDocument = async (req, res) => {
             return res.status(404).json({ success: false, message: "Document not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM property_documents WHERE document_id = ?", [documentId]);
+        const [updated] = await db.query("SELECT * FROM property_documents WHERE document_id = ? AND delete_status = FALSE", [documentId]);
         return res.status(200).json({ success: true, message: `Document status updated to ${verification_status}`, data: updated[0] });
     } catch (error) {
         console.error("Error verifying property document:", error);
@@ -145,7 +148,7 @@ const deletePropertyDocument = async (req, res) => {
     try {
         const { documentId } = req.params;
         const [result] = await db.query(
-            "UPDATE property_documents SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE document_id = ?",
+            "UPDATE property_documents SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE document_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, documentId]
         );
 

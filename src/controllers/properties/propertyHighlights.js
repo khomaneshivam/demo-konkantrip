@@ -29,7 +29,7 @@ const addPropertyHighlight = async (req, res) => {
             [propertyId, highlight_title, highlight_description || null, highlight_icon || null, display_order, status]
         );
 
-        const [created] = await db.query("SELECT * FROM property_highlights WHERE highlight_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_highlights WHERE highlight_id = ? AND status = TRUE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Highlight added successfully", data: created[0] });
     } catch (error) {
         console.error("Error adding property highlight:", error);
@@ -49,7 +49,7 @@ const updatePropertyHighlight = async (req, res) => {
                  highlight_icon = COALESCE(?, highlight_icon),
                  display_order = COALESCE(?, display_order),
                  status = COALESCE(?, status)
-             WHERE highlight_id = ?`,
+             WHERE highlight_id = ? AND status = TRUE`,
             [highlight_title, highlight_description, highlight_icon, display_order, status, highlightId]
         );
 
@@ -57,10 +57,10 @@ const updatePropertyHighlight = async (req, res) => {
             return res.status(404).json({ success: false, message: "Highlight not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM property_highlights WHERE highlight_id = ?", [highlightId]);
+        const [updated] = await db.query("SELECT * FROM property_highlights WHERE highlight_id = ? AND status = TRUE", [highlightId]);
         return res.status(200).json({ success: true, message: "Highlight updated", data: updated[0] });
     } catch (error) {
-        console.error("Error updating highlight:", error);
+        console.log("Error updating highlight:", error);
         return res.status(500).json({ success: false, message: error.sqlMessage || "Failed to update highlight" });
     }
 };
@@ -68,14 +68,14 @@ const updatePropertyHighlight = async (req, res) => {
 const deletePropertyHighlight = async (req, res) => {
     try {
         const { highlightId } = req.params;
-        const [result] = await db.query("DELETE FROM property_highlights WHERE highlight_id = ?", [highlightId]);
+        const [result] = await db.query("UPDATE property_highlights SET status = FALSE WHERE highlight_id = ? AND status = TRUE", [highlightId]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: "Highlight not found" });
         }
         return res.status(200).json({ success: true, message: "Highlight deleted" });
     } catch (error) {
         console.error("Error deleting highlight:", error);
-        return res.status(500).json({ success: false, message: "Failed to delete highlight" });
+        return res.status(500).json({ success: false, message: error.sqlMessage || "Failed to delete highlight" });
     }
 };
 

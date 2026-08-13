@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../../middlewares/authMiddleware");
 const { requireOwnerOrAdmin } = require("../../middlewares/roleMiddleware");
+const { uploadRoomImage } = require("../../middlewares/uploadMiddleware");
 const {
     getRooms,
     getRoomById,
@@ -25,7 +26,7 @@ router.delete("/:id", authMiddleware, requireOwnerOrAdmin, deleteRoom);
 
 // Room Images
 router.get("/:roomId/images", getRoomImages);
-router.post("/:roomId/images", authMiddleware, requireOwnerOrAdmin, addRoomImage);
+router.post("/:roomId/images", authMiddleware, requireOwnerOrAdmin, uploadRoomImage.single("file"), addRoomImage);
 router.put("/:roomId/images/:imageId", authMiddleware, requireOwnerOrAdmin, updateRoomImage);
 router.delete("/:roomId/images/:imageId", authMiddleware, requireOwnerOrAdmin, deleteRoomImage);
 

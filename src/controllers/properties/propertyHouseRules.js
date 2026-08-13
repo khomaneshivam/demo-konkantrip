@@ -60,7 +60,7 @@ const addPropertyHouseRule = async (req, res) => {
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM property_house_rules WHERE rule_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_house_rules WHERE rule_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({ success: true, message: "House rule added", data: created[0] });
     } catch (error) {
         console.error("Error adding house rule:", error);
@@ -93,7 +93,7 @@ const updatePropertyHouseRule = async (req, res) => {
             return res.status(404).json({ success: false, message: "House rule not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM property_house_rules WHERE rule_id = ?", [ruleId]);
+        const [updated] = await db.query("SELECT * FROM property_house_rules WHERE rule_id = ? AND delete_status = FALSE", [ruleId]);
         return res.status(200).json({ success: true, message: "House rule updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating house rule:", error);
@@ -105,7 +105,7 @@ const deletePropertyHouseRule = async (req, res) => {
     try {
         const { ruleId } = req.params;
         const [result] = await db.query(
-            "UPDATE property_house_rules SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE rule_id = ?",
+            "UPDATE property_house_rules SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE rule_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, ruleId]
         );
 

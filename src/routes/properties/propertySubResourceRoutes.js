@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router({ mergeParams: true });
 const authMiddleware = require("../../middlewares/authMiddleware");
 const { requireOwnerOrAdmin, requirePropertyOwnership, requireAdmin } = require("../../middlewares/roleMiddleware");
-const { uploadDocument } = require("../../middlewares/uploadMiddleware");
+const { uploadDocument, uploadPropertyImage } = require("../../middlewares/uploadMiddleware");
 
 // Controllers
 const { getPropertyContacts, addPropertyContact, updatePropertyContact, deletePropertyContact } = require("../../controllers/properties/propertyContacts");
@@ -25,7 +25,7 @@ router.delete("/:propertyId/contacts/:contactId", authMiddleware, requirePropert
 
 // Images
 router.get("/:propertyId/images", getPropertyImages);
-router.post("/:propertyId/images", authMiddleware, requirePropertyOwnership, addPropertyImage);
+router.post("/:propertyId/images", authMiddleware, requirePropertyOwnership, uploadPropertyImage.single("file"), addPropertyImage);
 router.put("/:propertyId/images/:imageId", authMiddleware, requirePropertyOwnership, updatePropertyImage);
 router.delete("/:propertyId/images/:imageId", authMiddleware, requirePropertyOwnership, deletePropertyImage);
 

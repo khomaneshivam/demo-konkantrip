@@ -204,9 +204,9 @@ const createRoom = async (req, res) => {
         const [result] = await db.query(`INSERT INTO rooms (${fields.join(", ")}) VALUES (${placeholders})`, values);
 
         // Update total_rooms count on property
-        await db.query("UPDATE properties SET total_rooms = total_rooms + 1 WHERE property_id = ?", [property_id]);
+        await db.query("UPDATE properties SET total_rooms = total_rooms + 1 WHERE property_id = ? AND delete_status = FALSE", [property_id]);
 
-        const [created] = await db.query("SELECT * FROM rooms WHERE room_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [result.insertId]);
         return res.status(201).json({ success: true, message: "Room created successfully", data: created[0] });
     } catch (error) {
         console.error("Error creating room:", error);
@@ -235,7 +235,7 @@ const updateRoom = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM rooms WHERE room_id = ?", [roomId]);
+        const [updated] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
         return res.status(200).json({ success: true, message: "Room updated successfully", data: updated[0] });
     } catch (error) {
         console.error("Error updating room:", error);
@@ -246,13 +246,13 @@ const updateRoom = async (req, res) => {
 const deleteRoom = async (req, res) => {
     try {
         const roomId = req.params.id;
-        const [roomRows] = await db.query("SELECT property_id FROM rooms WHERE room_id = ? LIMIT 1", [roomId]);
+        const [roomRows] = await db.query("SELECT property_id FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
         if (roomRows.length === 0) {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
 
         const [result] = await db.query(
-            "UPDATE rooms SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ?",
+            "UPDATE rooms SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, roomId]
         );
 
@@ -261,7 +261,7 @@ const deleteRoom = async (req, res) => {
         }
 
         // Decrement total_rooms on property
-        await db.query("UPDATE properties SET total_rooms = GREATEST(0, total_rooms - 1) WHERE property_id = ?", [roomRows[0].property_id]);
+        await db.query("UPDATE properties SET total_rooms = GREATEST(0, total_rooms - 1) WHERE property_id = ? AND delete_status = FALSE", [roomRows[0].property_id]);
 
         return res.status(200).json({ success: true, message: "Room deleted successfully" });
     } catch (error) {

@@ -51,7 +51,7 @@ const registerAdmin = async (req, res) => {
         }
 
         const [existingAdmin] = await db.query(
-            "SELECT admin_id FROM admin WHERE email = ? OR phone = ?",
+            "SELECT admin_id FROM admin WHERE (email = ? OR phone = ?) AND delete_status = FALSE",
             [email, phone]
         );
 

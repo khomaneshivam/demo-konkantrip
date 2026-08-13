@@ -1,4 +1,15 @@
+const path = require("path");
+const fs = require("fs").promises;
 const db = require("../../config/db");
+const { normalizeStorageProvider } = require("../../middlewares/uploadMiddleware");
+
+const cleanupUploadedFile = async (file) => {
+    if (file && file.path) {
+        try {
+            await fs.unlink(file.path);
+        } catch (_) {}
+    }
+};
 
 const getRoomImages = async (req, res) => {
     try {
@@ -21,25 +32,34 @@ const getRoomImages = async (req, res) => {
 const addRoomImage = async (req, res) => {
     try {
         const roomId = req.params.roomId;
+        const body = req.body || {};
+        const file = req.file;
+
+        let original_file_name = file ? file.originalname : body.original_file_name;
+        let stored_file_name = file ? file.filename : body.stored_file_name;
+        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || null);
+        let mime_type = file ? file.mimetype : (body.mime_type || null);
+        let file_size = file ? file.size : (body.file_size || null);
+
+        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
+        const protocol = req.protocol || "http";
+        const generatedUrl = file ? `${protocol}://${host}/uploads/rooms/${file.filename}` : null;
+        const generatedPath = file ? `/uploads/rooms/${file.filename}` : null;
+
         const {
-            room_image_type_id,
-            image_title,
+            room_image_type_id = 1,
+            image_title = original_file_name || "Room Image",
             image_description,
             image_alt_text,
             image_caption,
-            original_file_name,
-            stored_file_name,
-            file_extension,
-            mime_type,
-            file_size,
             image_width,
             image_height,
             aspect_ratio,
-            storage_provider = "AWS_S3",
-            storage_bucket,
-            storage_path,
-            cdn_url,
-            thumbnail_url,
+            storage_provider = "LOCAL",
+            storage_bucket = "uploads/rooms",
+            storage_path = generatedPath || body.storage_path,
+            cdn_url = generatedUrl || body.cdn_url,
+            thumbnail_url = generatedUrl || body.thumbnail_url,
             webp_url,
             avif_url,
             is_cover_image = false,
@@ -49,17 +69,20 @@ const addRoomImage = async (req, res) => {
             display_order = 1,
             image_tags,
             remarks
-        } = req.body;
+        } = body;
 
-        if (!room_image_type_id || !original_file_name || !stored_file_name || !cdn_url) {
+        const finalCdnUrl = cdn_url || generatedUrl;
+        if (!room_image_type_id || !original_file_name || !stored_file_name || !finalCdnUrl) {
             return res.status(400).json({
                 success: false,
-                message: "room_image_type_id, original_file_name, stored_file_name, and cdn_url are required"
+                message: "room_image_type_id, image file/details, and cdn_url are required"
             });
         }
 
-        if (is_cover_image) {
-            await db.query("UPDATE room_images SET is_cover_image = FALSE WHERE room_id = ?", [roomId]);
+        const normalizedProvider = normalizeStorageProvider(storage_provider);
+
+        if (is_cover_image === "true" || is_cover_image === true) {
+            await db.query("UPDATE room_images SET is_cover_image = FALSE WHERE room_id = ? AND delete_status = FALSE", [roomId]);
         }
 
         const [result] = await db.query(
@@ -73,15 +96,16 @@ const addRoomImage = async (req, res) => {
             [
                 roomId, room_image_type_id, image_title || null, image_description || null, image_alt_text || null, image_caption || null,
                 original_file_name, stored_file_name, file_extension || null, mime_type || null, file_size || null,
-                image_width || null, image_height || null, aspect_ratio || null, storage_provider, storage_bucket || null, storage_path || null,
-                cdn_url, thumbnail_url || null, webp_url || null, avif_url || null, is_cover_image, is_featured, is_primary,
-                is_active, display_order, image_tags || null, remarks || null, req.user?.p_owner_id || req.user?.admin_id || null
+                image_width || null, image_height || null, aspect_ratio || null, normalizedProvider, storage_bucket || "uploads/rooms", storage_path || null,
+                finalCdnUrl, thumbnail_url || finalCdnUrl, webp_url || null, avif_url || null, is_cover_image === "true" || is_cover_image === true, is_featured === "true" || is_featured === true, is_primary === "true" || is_primary === true,
+                is_active !== false && is_active !== "false", Number(display_order) || 1, image_tags || null, remarks || null, req.user?.p_owner_id || req.user?.admin_id || null
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM room_images WHERE room_image_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM room_images WHERE room_image_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Room image added", data: created[0] });
     } catch (error) {
+        await cleanupUploadedFile(req.file);
         console.error("Error adding room image:", error);
         return res.status(500).json({ success: false, message: error.sqlMessage || "Failed to add room image" });
     }
@@ -108,7 +132,7 @@ const updateRoomImage = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room image not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM room_images WHERE room_image_id = ?", [imageId]);
+        const [updated] = await db.query("SELECT * FROM room_images WHERE room_image_id = ? AND delete_status = FALSE", [imageId]);
         return res.status(200).json({ success: true, message: "Room image updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating room image:", error);
@@ -120,7 +144,7 @@ const deleteRoomImage = async (req, res) => {
     try {
         const { imageId } = req.params;
         const [result] = await db.query(
-            "UPDATE room_images SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_image_id = ?",
+            "UPDATE room_images SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_image_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, imageId]
         );
 

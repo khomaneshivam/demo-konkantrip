@@ -8,7 +8,7 @@ const getInventoryTransactions = async (req, res) => {
             FROM inventory_transactions it
             INNER JOIN rooms r ON r.room_id = it.room_id
             INNER JOIN properties p ON p.property_id = it.property_id
-            WHERE 1=1
+            WHERE r.delete_status = FALSE AND p.delete_status = FALSE
         `;
         const params = [];
 

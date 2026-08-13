@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const db = require('../../config/db');
+const { normalizeStorageProvider } = require('../../middlewares/uploadMiddleware');
 
 const cleanupUploadedFile = async (file) => {
     if (file && file.path) {
@@ -10,8 +11,21 @@ const cleanupUploadedFile = async (file) => {
     }
 };
 
-const buildFilePayload = (req, file) => {
-    const category = req.query?.category || req.body?.category || 'general';
+const buildFilePayload = (req, file, forcedCategory = null) => {
+    let category = forcedCategory;
+    if (!category && file.destination) {
+        const destFolder = path.basename(file.destination);
+        if (['properties', 'rooms', 'documents', 'profiles', 'general'].includes(destFolder)) {
+            category = destFolder;
+        }
+    }
+    if (!category) {
+        category = req.query?.category || req.body?.category || 'general';
+    }
+    if (!['properties', 'rooms', 'documents', 'profiles', 'general'].includes(category)) {
+        category = 'general';
+    }
+
     const host = (typeof req.get === 'function' ? req.get('host') : req.headers?.host) || 'localhost:5000';
     const protocol = req.protocol || 'http';
     const baseUrl = `${protocol}://${host}`;
@@ -29,7 +43,8 @@ const buildFilePayload = (req, file) => {
         mime_type: file.mimetype,
         file_size: file.size,
         file_extension: path.extname(file.originalname).toLowerCase(),
-        storage_provider: 'Local_Disk'
+        storage_provider: 'LOCAL',
+        storage_bucket: `uploads/${category}`
     };
 };
 
@@ -84,6 +99,32 @@ const uploadMultipleFiles = async (req, res) => {
     }
 };
 
+const uploadDocumentDirect = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No document file uploaded. Form field key should be "file" or "document".'
+            });
+        }
+
+        const fileData = buildFilePayload(req, req.file, 'documents');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Document uploaded to local storage successfully',
+            data: fileData
+        });
+    } catch (error) {
+        await cleanupUploadedFile(req.file);
+        console.error('Error uploading document:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to upload document'
+        });
+    }
+};
+
 const uploadPropertyImageDirect = async (req, res) => {
     try {
         const { propertyId } = req.params;
@@ -91,7 +132,7 @@ const uploadPropertyImageDirect = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Image file is required' });
         }
 
-        const fileData = buildFilePayload(req, req.file);
+        const fileData = buildFilePayload(req, req.file, 'properties');
         const {
             image_type_id = 1,
             image_title,
@@ -101,7 +142,7 @@ const uploadPropertyImageDirect = async (req, res) => {
         } = req.body;
 
         if (is_cover_image === 'true' || is_cover_image === true) {
-            await db.query('UPDATE property_images SET is_cover_image = FALSE WHERE property_id = ?', [propertyId]);
+            await db.query('UPDATE property_images SET is_cover_image = FALSE WHERE property_id = ? AND is_active = TRUE', [propertyId]);
         }
 
         const [result] = await db.query(
@@ -116,7 +157,7 @@ const uploadPropertyImageDirect = async (req, res) => {
                 image_type_id,
                 image_title || fileData.original_name,
                 image_alt_text || null,
-                'Local_Disk',
+                'LOCAL',
                 'uploads/properties',
                 fileData.stored_file_name,
                 fileData.url,
@@ -130,7 +171,7 @@ const uploadPropertyImageDirect = async (req, res) => {
             ]
         );
 
-        const [rows] = await db.query('SELECT * FROM property_images WHERE image_id = ?', [result.insertId]);
+        const [rows] = await db.query('SELECT * FROM property_images WHERE image_id = ? AND is_active = TRUE', [result.insertId]);
 
         return res.status(201).json({
             success: true,
@@ -151,7 +192,7 @@ const uploadRoomImageDirect = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Room image file is required' });
         }
 
-        const fileData = buildFilePayload(req, req.file);
+        const fileData = buildFilePayload(req, req.file, 'rooms');
         const {
             room_image_type_id = 1,
             image_title,
@@ -161,7 +202,7 @@ const uploadRoomImageDirect = async (req, res) => {
         } = req.body;
 
         if (is_cover_image === 'true' || is_cover_image === true) {
-            await db.query('UPDATE room_images SET is_cover_image = FALSE WHERE room_id = ?', [roomId]);
+            await db.query('UPDATE room_images SET is_cover_image = FALSE WHERE room_id = ? AND delete_status = FALSE', [roomId]);
         }
 
         const [result] = await db.query(
@@ -181,7 +222,7 @@ const uploadRoomImageDirect = async (req, res) => {
                 fileData.file_extension,
                 fileData.mime_type,
                 fileData.file_size,
-                'Local_Disk',
+                'LOCAL',
                 'uploads/rooms',
                 fileData.file_path,
                 fileData.url,
@@ -192,7 +233,7 @@ const uploadRoomImageDirect = async (req, res) => {
             ]
         );
 
-        const [rows] = await db.query('SELECT * FROM room_images WHERE room_image_id = ?', [result.insertId]);
+        const [rows] = await db.query('SELECT * FROM room_images WHERE room_image_id = ? AND delete_status = FALSE', [result.insertId]);
 
         return res.status(201).json({
             success: true,
@@ -213,12 +254,16 @@ const uploadPropertyDocumentDirect = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Document file is required' });
         }
 
-        const fileData = buildFilePayload(req, req.file);
+        const fileData = buildFilePayload(req, req.file, 'documents');
         const {
             document_type_id = 1,
             document_number,
             document_title,
             document_description,
+            issue_date,
+            expiry_date,
+            issued_by,
+            issuing_authority,
             remarks
         } = req.body;
 
@@ -228,8 +273,9 @@ const uploadPropertyDocumentDirect = async (req, res) => {
                 document_description, original_file_name, stored_file_name,
                 file_extension, mime_type, file_size, storage_provider,
                 storage_bucket, storage_path, cdn_url, thumbnail_url,
+                issue_date, expiry_date, issued_by, issuing_authority,
                 verification_status, remarks, uploaded_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Local_Disk', 'uploads/documents', ?, ?, ?, 'Pending', ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'LOCAL', 'uploads/documents', ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?)`,
             [
                 propertyId,
                 document_type_id,
@@ -244,12 +290,16 @@ const uploadPropertyDocumentDirect = async (req, res) => {
                 fileData.file_path,
                 fileData.url,
                 fileData.thumbnail_url,
+                issue_date || null,
+                expiry_date || null,
+                issued_by || null,
+                issuing_authority || null,
                 remarks || null,
                 req.user?.p_owner_id || req.user?.admin_id || null
             ]
         );
 
-        const [rows] = await db.query('SELECT * FROM property_documents WHERE document_id = ?', [result.insertId]);
+        const [rows] = await db.query('SELECT * FROM property_documents WHERE document_id = ? AND delete_status = FALSE', [result.insertId]);
 
         return res.status(201).json({
             success: true,
@@ -264,8 +314,10 @@ const uploadPropertyDocumentDirect = async (req, res) => {
 };
 
 module.exports = {
+    buildFilePayload,
     uploadSingleFile,
     uploadMultipleFiles,
+    uploadDocumentDirect,
     uploadPropertyImageDirect,
     uploadRoomImageDirect,
     uploadPropertyDocumentDirect

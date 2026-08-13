@@ -36,10 +36,12 @@ const authMiddleware = (req, res, next) => {
             const decoded = jwt.verify(token, process.env.JWT_SECRET || "supersecretkey");
             
             // Normalize role
-            const role = decoded.role || (decoded.admin_id ? "admin" : (decoded.p_owner_id ? "owner" : "guest"));
+            const role = decoded.role || (decoded.admin_id ? "admin" : (decoded.p_owner_id ? "owner" : (decoded.employee_id ? "employee" : "guest")));
             user = {
                 ...decoded,
-                role
+                role,
+                permissions: Array.isArray(decoded.permissions) ? decoded.permissions : [],
+                assigned_properties: Array.isArray(decoded.assigned_properties) ? decoded.assigned_properties : []
             };
 
             // Store in cache for subsequent requests

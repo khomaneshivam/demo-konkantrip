@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../../middlewares/authMiddleware');
 const { requirePropertyOwnership } = require('../../middlewares/roleMiddleware');
-const { upload, uploadDocument } = require('../../middlewares/uploadMiddleware');
+const {
+    upload,
+    uploadDocument,
+    uploadPropertyImage,
+    uploadRoomImage
+} = require('../../middlewares/uploadMiddleware');
 const uploadController = require('../../controllers/upload/uploadController');
 
 // Global Auth for all upload routes
@@ -12,18 +17,21 @@ router.use(authMiddleware);
 router.post('/single', upload.single('file'), uploadController.uploadSingleFile);
 router.post('/multiple', upload.array('files', 10), uploadController.uploadMultipleFiles);
 
+// Standalone document upload to local storage
+router.post('/document', uploadDocument.single('file'), uploadController.uploadDocumentDirect);
+
 // Direct property image upload + db record creation
 router.post(
     '/property/:propertyId/image',
     requirePropertyOwnership,
-    upload.single('file'),
+    uploadPropertyImage.single('file'),
     uploadController.uploadPropertyImageDirect
 );
 
 // Direct room image upload + db record creation
 router.post(
     '/room/:roomId/image',
-    upload.single('file'),
+    uploadRoomImage.single('file'),
     uploadController.uploadRoomImageDirect
 );
 
@@ -36,3 +44,4 @@ router.post(
 );
 
 module.exports = router;
+

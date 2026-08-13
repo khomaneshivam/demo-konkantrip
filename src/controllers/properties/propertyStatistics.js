@@ -14,7 +14,7 @@ const getPropertyStatistics = async (req, res) => {
                 "INSERT IGNORE INTO property_statistics (property_id, created_by) VALUES (?, ?)",
                 [propertyId, req.user?.p_owner_id || req.user?.admin_id || null]
             );
-            const [created] = await db.query("SELECT * FROM property_statistics WHERE property_id = ? LIMIT 1", [propertyId]);
+            const [created] = await db.query("SELECT * FROM property_statistics WHERE property_id = ? AND delete_status = FALSE LIMIT 1", [propertyId]);
             return res.status(200).json({ success: true, data: created[0] || {} });
         }
 
@@ -42,7 +42,7 @@ const incrementPropertyViews = async (req, res) => {
         );
 
         // Also increment total_views in properties table
-        await db.query("UPDATE properties SET total_views = total_views + 1 WHERE property_id = ?", [propertyId]);
+        await db.query("UPDATE properties SET total_views = total_views + 1 WHERE property_id = ? AND delete_status = FALSE", [propertyId]);
 
         return res.status(200).json({ success: true, message: "View recorded" });
     } catch (error) {
@@ -67,9 +67,9 @@ const updatePropertyStatistics = async (req, res) => {
         const setClauses = fields.map(f => `${f} = ?`).join(", ") + ", updated_by = ?, last_updated_statistics_at = NOW()";
         const values = [...Object.values(body), req.user?.p_owner_id || req.user?.admin_id || null, propertyId];
 
-        await db.query(`UPDATE property_statistics SET ${setClauses} WHERE property_id = ?`, values);
+        await db.query(`UPDATE property_statistics SET ${setClauses} WHERE property_id = ? AND delete_status = FALSE`, values);
 
-        const [updated] = await db.query("SELECT * FROM property_statistics WHERE property_id = ?", [propertyId]);
+        const [updated] = await db.query("SELECT * FROM property_statistics WHERE property_id = ? AND delete_status = FALSE LIMIT 1", [propertyId]);
         return res.status(200).json({ success: true, message: "Statistics updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating statistics:", error);

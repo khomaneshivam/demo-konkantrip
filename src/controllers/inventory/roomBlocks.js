@@ -2,13 +2,13 @@ const db = require("../../config/db");
 
 const getRoomBlocks = async (req, res) => {
     try {
-        const { property_id, room_id, status } = req.query;
+        const { property_id, room_id, status, include_cancelled } = req.query;
         let query = `
             SELECT rb.*, r.room_name, r.room_code, p.property_name
             FROM room_blocks rb
             INNER JOIN rooms r ON r.room_id = rb.room_id
             INNER JOIN properties p ON p.property_id = rb.property_id
-            WHERE 1=1
+            WHERE r.delete_status = FALSE AND p.delete_status = FALSE
         `;
         const params = [];
 
@@ -25,6 +25,8 @@ const getRoomBlocks = async (req, res) => {
         if (status) {
             query += " AND rb.status = ?";
             params.push(status);
+        } else if (include_cancelled !== "true") {
+            query += " AND rb.status != 'Cancelled'";
         }
 
         query += " ORDER BY rb.start_date DESC, rb.created_at DESC";

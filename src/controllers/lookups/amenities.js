@@ -25,7 +25,7 @@ const createAmenityCategory = async (req, res) => {
             [category_name, category_icon || null, display_order, status]
         );
 
-        const [created] = await db.query("SELECT * FROM amenity_categories WHERE amenity_category_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM amenity_categories WHERE amenity_category_id = ? AND status = TRUE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Category created", data: created[0] });
     } catch (error) {
         console.error(error);
@@ -44,7 +44,7 @@ const updateAmenityCategory = async (req, res) => {
                  category_icon = COALESCE(?, category_icon),
                  display_order = COALESCE(?, display_order),
                  status = COALESCE(?, status)
-             WHERE amenity_category_id = ?`,
+             WHERE amenity_category_id = ? AND status = TRUE`,
             [category_name, category_icon, display_order, status, id]
         );
 
@@ -52,7 +52,7 @@ const updateAmenityCategory = async (req, res) => {
             return res.status(404).json({ success: false, message: "Category not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM amenity_categories WHERE amenity_category_id = ?", [id]);
+        const [updated] = await db.query("SELECT * FROM amenity_categories WHERE amenity_category_id = ? AND status = TRUE", [id]);
         return res.status(200).json({ success: true, message: "Category updated", data: updated[0] });
     } catch (error) {
         console.error(error);
@@ -63,7 +63,7 @@ const updateAmenityCategory = async (req, res) => {
 const deleteAmenityCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const [result] = await db.query("DELETE FROM amenity_categories WHERE amenity_category_id = ?", [id]);
+        const [result] = await db.query("UPDATE amenity_categories SET status = FALSE WHERE amenity_category_id = ? AND status = TRUE", [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: "Category not found" });
         }
@@ -82,7 +82,7 @@ const getAmenities = async (req, res) => {
             SELECT a.*, c.category_name 
             FROM amenities a
             INNER JOIN amenity_categories c ON c.amenity_category_id = a.amenity_category_id
-            WHERE a.status = TRUE
+            WHERE a.status = TRUE AND (c.status IS NULL OR c.status = TRUE)
         `;
         const params = [];
 
@@ -118,7 +118,7 @@ const createAmenity = async (req, res) => {
             [amenity_category_id, amenity_name, amenity_icon || null, amenity_description || null, display_order, is_popular, status]
         );
 
-        const [created] = await db.query("SELECT * FROM amenities WHERE amenity_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM amenities WHERE amenity_id = ? AND status = TRUE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Amenity created", data: created[0] });
     } catch (error) {
         console.error(error);
@@ -140,7 +140,7 @@ const updateAmenity = async (req, res) => {
                  display_order = COALESCE(?, display_order),
                  is_popular = COALESCE(?, is_popular),
                  status = COALESCE(?, status)
-             WHERE amenity_id = ?`,
+             WHERE amenity_id = ? AND status = TRUE`,
             [amenity_category_id, amenity_name, amenity_icon, amenity_description, display_order, is_popular, status, id]
         );
 
@@ -148,7 +148,7 @@ const updateAmenity = async (req, res) => {
             return res.status(404).json({ success: false, message: "Amenity not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM amenities WHERE amenity_id = ?", [id]);
+        const [updated] = await db.query("SELECT * FROM amenities WHERE amenity_id = ? AND status = TRUE", [id]);
         return res.status(200).json({ success: true, message: "Amenity updated", data: updated[0] });
     } catch (error) {
         console.error(error);
@@ -159,7 +159,7 @@ const updateAmenity = async (req, res) => {
 const deleteAmenity = async (req, res) => {
     try {
         const { id } = req.params;
-        const [result] = await db.query("DELETE FROM amenities WHERE amenity_id = ?", [id]);
+        const [result] = await db.query("UPDATE amenities SET status = FALSE WHERE amenity_id = ? AND status = TRUE", [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ success: false, message: "Amenity not found" });
         }

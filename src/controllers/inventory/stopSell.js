@@ -2,13 +2,13 @@ const db = require("../../config/db");
 
 const getStopSellRules = async (req, res) => {
     try {
-        const { property_id, room_id, status } = req.query;
+        const { property_id, room_id, status, include_cancelled } = req.query;
         let query = `
             SELECT ss.*, r.room_name, r.room_code, p.property_name
             FROM stop_sell ss
             LEFT JOIN rooms r ON r.room_id = ss.room_id
             INNER JOIN properties p ON p.property_id = ss.property_id
-            WHERE 1=1
+            WHERE p.delete_status = FALSE AND (r.delete_status IS NULL OR r.delete_status = FALSE)
         `;
         const params = [];
 
@@ -25,6 +25,8 @@ const getStopSellRules = async (req, res) => {
         if (status) {
             query += " AND ss.status = ?";
             params.push(status);
+        } else if (include_cancelled !== "true") {
+            query += " AND ss.status != 'Cancelled'";
         }
 
         query += " ORDER BY ss.start_date DESC, ss.created_at DESC";

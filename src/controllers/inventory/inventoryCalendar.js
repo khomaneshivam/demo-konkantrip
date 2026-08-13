@@ -13,7 +13,7 @@ const getInventoryCalendar = async (req, res) => {
             FROM inventory_calendar ic
             INNER JOIN rooms r ON r.room_id = ic.room_id
             INNER JOIN properties p ON p.property_id = ic.property_id
-            WHERE ic.inventory_date BETWEEN ? AND ?
+            WHERE ic.inventory_date BETWEEN ? AND ? AND r.delete_status = FALSE AND p.delete_status = FALSE
         `;
         const params = [start_date, end_date];
 

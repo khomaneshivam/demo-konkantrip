@@ -28,7 +28,7 @@ module.exports = {
                                     file: {
                                         type: 'string',
                                         format: 'binary',
-                                        description: 'File to upload (JPG, PNG, WEBP, GIF, AVIF, PDF max 10MB)'
+                                        description: 'File to upload (PDF, JPG, PNG, WEBP, DOCX, etc.)'
                                     }
                                 },
                                 required: ['file']
@@ -57,7 +57,7 @@ module.exports = {
                                                 file_size: { type: 'integer', example: 1048576 },
                                                 file_extension: { type: 'string', example: '.jpg' },
                                                 category: { type: 'string', example: 'properties' },
-                                                storage_provider: { type: 'string', example: 'Local_Disk' }
+                                                storage_provider: { type: 'string', example: 'LOCAL' }
                                             }
                                         }
                                     }
@@ -105,6 +105,36 @@ module.exports = {
                 responses: {
                     200: { description: 'Files uploaded successfully' },
                     400: { description: 'Validation error' }
+                }
+            }
+        },
+        '/api/v1/upload/document': {
+            post: {
+                tags: ['File Uploads'],
+                summary: 'Upload a document directly to local storage',
+                description: 'Uploads a document (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, JPG, PNG) into the local /uploads/documents directory and returns file metadata.',
+                security: [{ BearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'multipart/form-data': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    file: {
+                                        type: 'string',
+                                        format: 'binary',
+                                        description: 'Document file (Max 25MB)'
+                                    }
+                                },
+                                required: ['file']
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: 'Document uploaded to local storage successfully' },
+                    400: { description: 'Missing file or invalid file format' }
                 }
             }
         },

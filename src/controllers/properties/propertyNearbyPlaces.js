@@ -58,7 +58,7 @@ const addPropertyNearbyPlace = async (req, res) => {
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM property_nearby_places WHERE nearby_place_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_nearby_places WHERE nearby_place_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Nearby place added", data: created[0] });
     } catch (error) {
         console.error("Error adding nearby place:", error);
@@ -91,7 +91,7 @@ const updatePropertyNearbyPlace = async (req, res) => {
             return res.status(404).json({ success: false, message: "Nearby place not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM property_nearby_places WHERE nearby_place_id = ?", [placeId]);
+        const [updated] = await db.query("SELECT * FROM property_nearby_places WHERE nearby_place_id = ? AND delete_status = FALSE", [placeId]);
         return res.status(200).json({ success: true, message: "Nearby place updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating nearby place:", error);
@@ -103,7 +103,7 @@ const deletePropertyNearbyPlace = async (req, res) => {
     try {
         const { placeId } = req.params;
         const [result] = await db.query(
-            "UPDATE property_nearby_places SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE nearby_place_id = ?",
+            "UPDATE property_nearby_places SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE nearby_place_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, placeId]
         );
 

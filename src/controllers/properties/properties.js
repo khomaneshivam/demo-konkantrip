@@ -258,8 +258,8 @@ const ensureUniquePropertySlug = async (slug, excludeId = null) => {
     while (true) {
         const [rows] = await db.query(
             excludeId
-                ? "SELECT property_id FROM properties WHERE property_slug = ? AND property_id != ? LIMIT 1"
-                : "SELECT property_id FROM properties WHERE property_slug = ? LIMIT 1",
+                ? "SELECT property_id FROM properties WHERE property_slug = ? AND property_id != ? AND delete_status = FALSE LIMIT 1"
+                : "SELECT property_id FROM properties WHERE property_slug = ? AND delete_status = FALSE LIMIT 1",
             excludeId ? [candidate, excludeId] : [candidate]
         );
 
@@ -438,7 +438,7 @@ const createProperty = async (req, res) => {
         );
 
         const [rows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? LIMIT 1",
+            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
             [result.insertId]
         );
 
@@ -518,12 +518,12 @@ const updateProperty = async (req, res) => {
         const assignments = updateColumns.map((column) => `${column} = ?`).join(", ");
 
         await db.query(
-            `UPDATE properties SET ${assignments} WHERE property_id = ?`,
+            `UPDATE properties SET ${assignments} WHERE property_id = ? AND delete_status = FALSE`,
             [...values, id]
         );
 
         const [updatedRows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? LIMIT 1",
+            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
             [id]
         );
 
@@ -565,7 +565,7 @@ const deleteProperty = async (req, res) => {
         }
 
         await db.query(
-            "UPDATE properties SET delete_status = TRUE, deleted_at = NOW(), property_status = 'Inactive', updated_by = ? WHERE property_id = ?",
+            "UPDATE properties SET delete_status = TRUE, deleted_at = NOW(), property_status = 'Inactive', updated_by = ? WHERE property_id = ? AND delete_status = FALSE",
             [authenticatedOwnerId || req.user?.admin_id || rows[0].created_by || rows[0].p_owner_id, id]
         );
 

@@ -35,7 +35,7 @@ const updatePassword = async (req, res) => {
         }
 
         const [rows] = await db.query(
-            "SELECT password FROM property_owners WHERE p_owner_id = ?",
+            "SELECT password FROM property_owners WHERE p_owner_id = ? AND delete_status = FALSE",
             [userId]
         );
 
@@ -58,7 +58,7 @@ const updatePassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         await db.query(
-            "UPDATE property_owners SET password = ? WHERE p_owner_id = ?",
+            "UPDATE property_owners SET password = ? WHERE p_owner_id = ? AND delete_status = FALSE",
             [hashedPassword, userId]
         );
 

@@ -3672,4 +3672,144 @@ ENGINE=InnoDB
 DEFAULT CHARSET=utf8mb4
 COLLATE=utf8mb4_unicode_ci;
 
+/* =============================================================================
+   SECTION 8: CRM EMPLOYEES & ROLE-BASED ACCESS CONTROL (RBAC)
+   ============================================================================= */
+
+CREATE TABLE IF NOT EXISTS permissions (
+    permission_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    module VARCHAR(50) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    permission_code VARCHAR(100) NOT NULL,
+    description VARCHAR(255) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_permission_code (permission_code),
+    KEY idx_permissions_module (module),
+    KEY idx_permissions_is_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS employee_roles (
+    role_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    p_owner_id BIGINT UNSIGNED NULL,
+    role_name VARCHAR(100) NOT NULL,
+    role_slug VARCHAR(100) NOT NULL,
+    role_description VARCHAR(255) NULL,
+    is_system_role BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    delete_status BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    deleted_by BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    KEY idx_roles_owner (p_owner_id),
+    KEY idx_roles_slug (role_slug),
+    KEY idx_roles_system (is_system_role),
+    KEY idx_roles_active_delete (is_active, delete_status),
+    CONSTRAINT fk_employee_roles_owner FOREIGN KEY (p_owner_id)
+        REFERENCES property_owners(p_owner_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+    role_id BIGINT UNSIGNED NOT NULL,
+    permission_id BIGINT UNSIGNED NOT NULL,
+    PRIMARY KEY (role_id, permission_id),
+    CONSTRAINT fk_role_permissions_role FOREIGN KEY (role_id)
+        REFERENCES employee_roles(role_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_role_permissions_perm FOREIGN KEY (permission_id)
+        REFERENCES permissions(permission_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS employees (
+    employee_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    uuid CHAR(36) NOT NULL DEFAULT (UUID()),
+    p_owner_id BIGINT UNSIGNED NOT NULL,
+    role_id BIGINT UNSIGNED NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    avatar_url VARCHAR(500) NULL,
+    gender ENUM('Male', 'Female', 'Other') NULL,
+    date_of_birth DATE NULL,
+    joining_date DATE NULL,
+    salary DECIMAL(10,2) NULL,
+    designation VARCHAR(100) NULL,
+    department VARCHAR(100) NULL,
+    employment_type ENUM('Full-Time', 'Part-Time', 'Contract', 'Intern') NOT NULL DEFAULT 'Full-Time',
+    emergency_contact_name VARCHAR(100) NULL,
+    emergency_contact_phone VARCHAR(20) NULL,
+    address TEXT NULL,
+    id_proof_type VARCHAR(50) NULL,
+    id_proof_number VARCHAR(100) NULL,
+    status ENUM('Active', 'Inactive', 'Suspended', 'Terminated') NOT NULL DEFAULT 'Active',
+    delete_status BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    deleted_by BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    UNIQUE KEY uq_employees_uuid (uuid),
+    KEY idx_employees_owner (p_owner_id),
+    KEY idx_employees_role (role_id),
+    KEY idx_employees_email (email),
+    KEY idx_employees_phone (phone),
+    KEY idx_employees_status (status),
+    KEY idx_employees_delete_status (delete_status),
+    CONSTRAINT fk_employees_owner FOREIGN KEY (p_owner_id)
+        REFERENCES property_owners(p_owner_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_employees_role FOREIGN KEY (role_id)
+        REFERENCES employee_roles(role_id) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS property_employees (
+    mapping_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    property_id BIGINT UNSIGNED NOT NULL,
+    employee_id BIGINT UNSIGNED NOT NULL,
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active',
+    delete_status BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by BIGINT UNSIGNED NULL,
+    updated_by BIGINT UNSIGNED NULL,
+    deleted_by BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    UNIQUE KEY uq_property_employee (property_id, employee_id),
+    KEY idx_pe_property (property_id),
+    KEY idx_pe_employee (employee_id),
+    KEY idx_pe_status_delete (status, delete_status),
+    CONSTRAINT fk_property_employees_prop FOREIGN KEY (property_id)
+        REFERENCES properties(property_id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_property_employees_emp FOREIGN KEY (employee_id)
+        REFERENCES employees(employee_id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS employee_login_logs (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    employee_id BIGINT UNSIGNED NULL,
+    email VARCHAR(255) NULL,
+    login_status ENUM('SUCCESS', 'FAILED') NOT NULL,
+    failure_reason VARCHAR(255) NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    device_type VARCHAR(100) NULL,
+    browser VARCHAR(100) NULL,
+    operating_system VARCHAR(100) NULL,
+    login_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    logout_time TIMESTAMP NULL,
+    session_id VARCHAR(255) NULL,
+    jwt_id VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_employee_logs_time (employee_id, created_at),
+    KEY idx_employee_logs_email (email, created_at),
+    CONSTRAINT fk_employee_login_emp FOREIGN KEY (employee_id)
+        REFERENCES employees(employee_id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
