@@ -5,6 +5,7 @@ const db = require("../../config/db");
  */
 const createLookupController = (tableName, primaryKey, uniqueNameField = "name", options = {}) => {
     const hasActive = options.hasActiveField !== false;
+    const activeCol = options.activeColumn || options.activeField || "is_active";
 
     return {
         getAll: async (req, res) => {
@@ -16,7 +17,7 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
                 if (hasActive) {
                     const includeInactive = req.query.include_inactive === "true" || req.query.all === "true";
                     if (!includeInactive) {
-                        conditions.push("is_active = TRUE");
+                        conditions.push(`${activeCol} = TRUE`);
                     }
                 }
 
@@ -41,7 +42,7 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
         getById: async (req, res) => {
             try {
                 const id = req.params.id;
-                const activeClause = hasActive ? " AND is_active = TRUE" : "";
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
                 const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [id]);
                 if (rows.length === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
@@ -69,7 +70,7 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
                 const query = `INSERT INTO ${tableName} (${fields.join(", ")}) VALUES (${placeholders})`;
                 const [result] = await db.query(query, values);
 
-                const activeClause = hasActive ? " AND is_active = TRUE" : "";
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
                 const [created] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [result.insertId]);
                 return res.status(201).json({ success: true, message: "Created successfully", data: created[0] });
             } catch (error) {
@@ -91,7 +92,7 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
 
                 const setClauses = fields.map(f => `${f} = ?`).join(", ");
                 const values = [...Object.values(body), id];
-                const activeClause = hasActive ? " AND is_active = TRUE" : "";
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
 
                 const [result] = await db.query(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?${activeClause}`, values);
                 if (result.affectedRows === 0) {
@@ -111,7 +112,7 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
                 const id = req.params.id;
                 let result;
                 if (hasActive) {
-                    [result] = await db.query(`UPDATE ${tableName} SET is_active = FALSE WHERE ${primaryKey} = ? AND is_active = TRUE`, [id]);
+                    [result] = await db.query(`UPDATE ${tableName} SET ${activeCol} = FALSE WHERE ${primaryKey} = ? AND ${activeCol} = TRUE`, [id]);
                 } else {
                     [result] = await db.query(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`, [id]);
                 }
@@ -129,13 +130,13 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
 };
 
 module.exports = {
-    languagesController: createLookupController("languages", "language_id", "language_name", { hasDisplayOrder: true }),
-    documentTypesController: createLookupController("document_types", "document_type_id", "document_name", { hasDisplayOrder: true }),
-    nearbyPlaceTypesController: createLookupController("nearby_place_types", "nearby_place_type_id", "place_type_name", { hasDisplayOrder: true }),
-    houseRuleCategoriesController: createLookupController("property_house_rule_categories", "rule_category_id", "category_name", { hasDisplayOrder: true }),
-    tagsController: createLookupController("tags", "tag_id", "tag_name", { hasDisplayOrder: true }),
-    propertyImageTypesController: createLookupController("property_image_types", "image_type_id", "image_type_name", { hasDisplayOrder: true }),
-    contactTypesController: createLookupController("contact_types", "contact_type_id", "contact_type_name", { hasDisplayOrder: true }),
-    certificationTypesController: createLookupController("certification_types", "certification_type_id", "certification_name", { hasDisplayOrder: true }),
-    mealPlansController: createLookupController("meal_plans", "meal_plan_id", "meal_plan_name", { hasDisplayOrder: true })
+    languagesController: createLookupController("languages", "language_id", "language_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    documentTypesController: createLookupController("document_types", "document_type_id", "document_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    nearbyPlaceTypesController: createLookupController("nearby_place_types", "nearby_place_type_id", "place_type_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    houseRuleCategoriesController: createLookupController("property_house_rule_categories", "rule_category_id", "category_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    tagsController: createLookupController("tags", "tag_id", "tag_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    propertyImageTypesController: createLookupController("property_image_types", "image_type_id", "image_type_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    contactTypesController: createLookupController("contact_types", "contact_type_id", "contact_type_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    certificationTypesController: createLookupController("certification_types", "certification_type_id", "certification_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    mealPlansController: createLookupController("meal_plans", "meal_plan_id", "meal_plan_name", { hasDisplayOrder: true, activeColumn: "is_active" })
 };

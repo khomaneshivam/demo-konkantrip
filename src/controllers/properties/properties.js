@@ -68,6 +68,7 @@ const PROPERTY_WRITE_FIELDS = new Set([
     "built_year",
     "renovated_year",
     "currency_code",
+    "starting_price",
     "price_display_type",
     "instant_booking",
     ...ADMIN_ONLY_PROPERTY_FIELDS
@@ -78,6 +79,7 @@ const DEFAULT_PROPERTY_VALUES = {
     check_in_time: "12:00:00",
     check_out_time: "10:00:00",
     currency_code: "INR",
+    starting_price: 0.00,
     price_display_type: "Per Night",
     instant_booking: true,
     property_status: "Draft",
@@ -110,6 +112,7 @@ const PROPERTY_COLUMNS = [
     "built_year",
     "renovated_year",
     "currency_code",
+    "starting_price",
     "price_display_type",
     "average_rating",
     "total_reviews",

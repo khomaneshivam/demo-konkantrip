@@ -179,6 +179,16 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
+    const { initializeEmployeeTables } = require("./src/config/createEmployeeTables");
+    const { initializePricingTables } = require("./src/config/createPricingTables");
+    
+    initializeEmployeeTables().catch(err => {
+        logger.warn("Employee tables initialization warning:", { error: err.message });
+    });
+    initializePricingTables().catch(err => {
+        logger.warn("Pricing tables initialization warning:", { error: err.message });
+    });
+
     const port = env.PORT;
     const server = app.listen(port, () => {
         logger.info(`Server is running on port ${port}`);

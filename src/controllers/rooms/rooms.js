@@ -137,6 +137,14 @@ const getRoomById = async (req, res) => {
             [roomId]
         );
 
+        // Fetch seasonal rates
+        const [seasonal_rates] = await db.query(
+            `SELECT * FROM room_seasonal_rates
+             WHERE room_id = ? AND delete_status = FALSE AND is_active = TRUE
+             ORDER BY start_date ASC`,
+            [roomId]
+        );
+
         return res.status(200).json({
             success: true,
             data: {
@@ -144,12 +152,29 @@ const getRoomById = async (req, res) => {
                 beds,
                 images,
                 amenities,
-                facilities
+                facilities,
+                seasonal_rates
             }
         });
     } catch (error) {
         console.error("Error fetching room details:", error);
         return res.status(500).json({ success: false, message: "Failed to fetch room details" });
+    }
+};
+
+const syncPropertyStartingPrice = async (propertyId) => {
+    try {
+        const [rows] = await db.query(
+            `SELECT MIN(COALESCE(NULLIF(discount_price, 0), NULLIF(base_price, 0))) as min_price 
+             FROM rooms 
+             WHERE property_id = ? AND delete_status = FALSE AND (base_price > 0 OR discount_price > 0)`,
+            [propertyId]
+        );
+        if (rows.length > 0 && rows[0].min_price !== null) {
+            await db.query("UPDATE properties SET starting_price = ? WHERE property_id = ?", [rows[0].min_price, propertyId]);
+        }
+    } catch (err) {
+        console.warn("Could not sync starting_price for property:", err.message);
     }
 };
 
@@ -203,8 +228,9 @@ const createRoom = async (req, res) => {
 
         const [result] = await db.query(`INSERT INTO rooms (${fields.join(", ")}) VALUES (${placeholders})`, values);
 
-        // Update total_rooms count on property
+        // Update total_rooms count on property & sync starting_price
         await db.query("UPDATE properties SET total_rooms = total_rooms + 1 WHERE property_id = ? AND delete_status = FALSE", [property_id]);
+        await syncPropertyStartingPrice(property_id);
 
         const [created] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [result.insertId]);
         return res.status(201).json({ success: true, message: "Room created successfully", data: created[0] });
@@ -236,6 +262,10 @@ const updateRoom = async (req, res) => {
         }
 
         const [updated] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
+        if (updated.length > 0) {
+            await syncPropertyStartingPrice(updated[0].property_id);
+        }
+
         return res.status(200).json({ success: true, message: "Room updated successfully", data: updated[0] });
     } catch (error) {
         console.error("Error updating room:", error);
@@ -260,8 +290,9 @@ const deleteRoom = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
 
-        // Decrement total_rooms on property
+        // Decrement total_rooms on property & sync starting price
         await db.query("UPDATE properties SET total_rooms = GREATEST(0, total_rooms - 1) WHERE property_id = ? AND delete_status = FALSE", [roomRows[0].property_id]);
+        await syncPropertyStartingPrice(roomRows[0].property_id);
 
         return res.status(200).json({ success: true, message: "Room deleted successfully" });
     } catch (error) {

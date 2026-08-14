@@ -16,6 +16,7 @@ const { getRoomImages, addRoomImage, updateRoomImage, deleteRoomImage } = requir
 const { getRoomBeds, addRoomBed, updateRoomBed, deleteRoomBed } = require("../../controllers/rooms/roomBeds");
 const { getRoomAmenities, addRoomAmenity, deleteRoomAmenity } = require("../../controllers/rooms/roomAmenities");
 const { getRoomFacilities, addRoomFacility, deleteRoomFacility } = require("../../controllers/rooms/roomFacilities");
+const { getRoomRates, createRoomRate, updateRoomRate, deleteRoomRate } = require("../../controllers/rooms/roomRates");
 
 // Core Room CRUD
 router.get("/", getRooms);
@@ -23,6 +24,13 @@ router.get("/:id", getRoomById);
 router.post("/", authMiddleware, requireOwnerOrAdmin, createRoom);
 router.put("/:id", authMiddleware, requireOwnerOrAdmin, updateRoom);
 router.delete("/:id", authMiddleware, requireOwnerOrAdmin, deleteRoom);
+
+// Room Seasonal Rates & Discount Pricing
+router.get("/rates/all", getRoomRates);
+router.get("/:roomId/rates", getRoomRates);
+router.post("/:roomId/rates", authMiddleware, requireOwnerOrAdmin, createRoomRate);
+router.put("/:roomId/rates/:rateId", authMiddleware, requireOwnerOrAdmin, updateRoomRate);
+router.delete("/:roomId/rates/:rateId", authMiddleware, requireOwnerOrAdmin, deleteRoomRate);
 
 // Room Images
 router.get("/:roomId/images", getRoomImages);
