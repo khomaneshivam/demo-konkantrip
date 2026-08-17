@@ -47,10 +47,14 @@ const VALID_PRICE_DISPLAY_TYPES = [
 const ADMIN_ONLY_PROPERTY_FIELDS = new Set([
     "is_verified",
     "is_featured",
-    "property_status",
     "approval_remarks",
     "approved_by",
     "approved_at"
+]);
+
+const OWNER_ALLOWED_PROPERTY_STATUSES = new Set([
+    "Draft",
+    "Pending"
 ]);
 
 const PROPERTY_WRITE_FIELDS = new Set([
@@ -68,7 +72,6 @@ const PROPERTY_WRITE_FIELDS = new Set([
     "built_year",
     "renovated_year",
     "currency_code",
-    "starting_price",
     "price_display_type",
     "instant_booking",
     ...ADMIN_ONLY_PROPERTY_FIELDS
@@ -175,6 +178,10 @@ const sanitizePropertyPayloadForRole = (payload = {}, req = {}) => {
     if (!isSuperAdmin(req)) {
         for (const field of ADMIN_ONLY_PROPERTY_FIELDS) {
             delete sanitized[field];
+        }
+
+        if (sanitized.property_status && !OWNER_ALLOWED_PROPERTY_STATUSES.has(sanitized.property_status)) {
+            delete sanitized.property_status;
         }
     }
 

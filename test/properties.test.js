@@ -77,3 +77,24 @@ test('sanitizePropertyPayloadForRole enables featured when a super-admin approve
     assert.equal(sanitized.is_featured, true);
     assert.equal(sanitized.property_status, 'Approved');
 });
+
+test('sanitizePropertyPayloadForRole allows property owners to set property_status to Pending or Draft', () => {
+    const pendingSanitized = sanitizePropertyPayloadForRole(
+        {
+            property_name: 'Konkan Pearl Resort',
+            property_status: 'Pending'
+        },
+        { user: { role: 'property_owner', p_owner_id: 1 } }
+    );
+    assert.equal(pendingSanitized.property_status, 'Pending');
+
+    const draftSanitized = sanitizePropertyPayloadForRole(
+        {
+            property_name: 'Konkan Pearl Resort',
+            property_status: 'Draft'
+        },
+        { user: { role: 'property_owner', p_owner_id: 1 } }
+    );
+    assert.equal(draftSanitized.property_status, 'Draft');
+});
+

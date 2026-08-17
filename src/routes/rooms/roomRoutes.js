@@ -27,31 +27,31 @@ router.delete("/:id", authMiddleware, requireOwnerOrAdmin, deleteRoom);
 
 // Room Seasonal Rates & Discount Pricing
 router.get("/rates/all", getRoomRates);
-router.get("/:roomId/rates", getRoomRates);
-router.post("/:roomId/rates", authMiddleware, requireOwnerOrAdmin, createRoomRate);
-router.put("/:roomId/rates/:rateId", authMiddleware, requireOwnerOrAdmin, updateRoomRate);
-router.delete("/:roomId/rates/:rateId", authMiddleware, requireOwnerOrAdmin, deleteRoomRate);
+router.get("/rates/:roomId", getRoomRates);
+router.post("/rates/:roomId", authMiddleware, requireOwnerOrAdmin, createRoomRate);
+router.put("/rates/:roomId/:rateId", authMiddleware, requireOwnerOrAdmin, updateRoomRate);
+router.delete("/rates/:roomId/:rateId", authMiddleware, requireOwnerOrAdmin, deleteRoomRate);
 
 // Room Images
-router.get("/:roomId/images", getRoomImages);
-router.post("/:roomId/images", authMiddleware, requireOwnerOrAdmin, uploadRoomImage.single("file"), addRoomImage);
-router.put("/:roomId/images/:imageId", authMiddleware, requireOwnerOrAdmin, updateRoomImage);
-router.delete("/:roomId/images/:imageId", authMiddleware, requireOwnerOrAdmin, deleteRoomImage);
+router.get("/images/:roomId", getRoomImages);
+router.post("/images/:roomId", authMiddleware, requireOwnerOrAdmin, uploadRoomImage.single("file"), addRoomImage);
+router.put("/images/:roomId/:imageId", authMiddleware, requireOwnerOrAdmin, updateRoomImage);
+router.delete("/images/:roomId/:imageId", authMiddleware, requireOwnerOrAdmin, deleteRoomImage);
 
 // Room Beds
-router.get("/:roomId/beds", getRoomBeds);
-router.post("/:roomId/beds", authMiddleware, requireOwnerOrAdmin, addRoomBed);
-router.put("/:roomId/beds/:bedId", authMiddleware, requireOwnerOrAdmin, updateRoomBed);
-router.delete("/:roomId/beds/:bedId", authMiddleware, requireOwnerOrAdmin, deleteRoomBed);
+router.get("/beds/:roomId", getRoomBeds);
+router.post("/beds/:roomId", authMiddleware, requireOwnerOrAdmin, addRoomBed);
+router.put("/beds/:roomId/:bedId", authMiddleware, requireOwnerOrAdmin, updateRoomBed);
+router.delete("/beds/:roomId/:bedId", authMiddleware, requireOwnerOrAdmin, deleteRoomBed);
 
 // Room Amenities
-router.get("/:roomId/amenities", getRoomAmenities);
-router.post("/:roomId/amenities", authMiddleware, requireOwnerOrAdmin, addRoomAmenity);
-router.delete("/:roomId/amenities/:amenityId", authMiddleware, requireOwnerOrAdmin, deleteRoomAmenity);
+router.get("/amenities/:roomId", getRoomAmenities);
+router.post("/amenities/:roomId", authMiddleware, requireOwnerOrAdmin, addRoomAmenity);
+router.delete("/amenities/:roomId/:amenityId", authMiddleware, requireOwnerOrAdmin, deleteRoomAmenity);
 
 // Room Facilities
-router.get("/:roomId/facilities", getRoomFacilities);
-router.post("/:roomId/facilities", authMiddleware, requireOwnerOrAdmin, addRoomFacility);
-router.delete("/:roomId/facilities/:facilityId", authMiddleware, requireOwnerOrAdmin, deleteRoomFacility);
+router.get("/facilities/:roomId", getRoomFacilities);
+router.post("/facilities/:roomId", authMiddleware, requireOwnerOrAdmin, addRoomFacility);
+router.delete("/facilities/:roomId/:facilityId", authMiddleware, requireOwnerOrAdmin, deleteRoomFacility);
 
 module.exports = router;

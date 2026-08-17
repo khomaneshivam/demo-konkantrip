@@ -403,6 +403,7 @@ CREATE TABLE IF NOT EXISTS tags (
         UNIQUE NOT NULL,
 
     tag_color VARCHAR(20),
+    is_active BOOLEAN,
 
     display_order SMALLINT DEFAULT 1,
 

@@ -76,7 +76,7 @@ const roomPaths = {
         }
     },
     // Room Seasonal Rates & Dynamic Pricing
-    "/api/v1/rooms/{roomId}/rates": {
+    "/api/v1/rooms/rates/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room seasonal & discount pricing rules",
@@ -117,7 +117,7 @@ const roomPaths = {
             responses: { "201": { description: "Seasonal rate rule created successfully." } }
         }
     },
-    "/api/v1/rooms/{roomId}/rates/{rateId}": {
+    "/api/v1/rooms/rates/{roomId}/{rateId}": {
         put: {
             tags: ["Rooms"],
             summary: "Update a seasonal or weekend price rule",
@@ -177,7 +177,7 @@ const roomPaths = {
         }
     },
     // Room Images
-    "/api/v1/rooms/{roomId}/images": {
+    "/api/v1/rooms/images/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room photos",
@@ -211,7 +211,7 @@ const roomPaths = {
         }
     },
     // Room Beds
-    "/api/v1/rooms/{roomId}/beds": {
+    "/api/v1/rooms/beds/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get bed configuration for room",
@@ -244,7 +244,7 @@ const roomPaths = {
         }
     },
     // Room Amenities
-    "/api/v1/rooms/{roomId}/amenities": {
+    "/api/v1/rooms/amenities/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room-level amenities",
@@ -276,7 +276,7 @@ const roomPaths = {
         }
     },
     // Room Facilities
-    "/api/v1/rooms/{roomId}/facilities": {
+    "/api/v1/rooms/facilities/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room facilities mapping",

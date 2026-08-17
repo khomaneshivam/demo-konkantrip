@@ -36,27 +36,35 @@ const uploadPropertyDocument = async (req, res) => {
         const body = req.body || {};
         const file = req.file;
 
-        let original_file_name = file ? file.originalname : body.original_file_name;
-        let stored_file_name = file ? file.filename : body.stored_file_name;
-        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (original_file_name ? path.extname(original_file_name).toLowerCase() : null));
-        let mime_type = file ? file.mimetype : body.mime_type;
-        let file_size = file ? file.size : body.file_size;
-
         const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
         const protocol = req.protocol || "http";
         const generatedUrl = file ? `${protocol}://${host}/uploads/documents/${file.filename}` : null;
         const generatedPath = file ? `/uploads/documents/${file.filename}` : null;
+        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+
+        let parsedFilename = null;
+        if (finalCdnUrl) {
+            try {
+                parsedFilename = path.basename(new URL(finalCdnUrl, "http://localhost").pathname);
+            } catch (_) {}
+        }
+
+        let original_file_name = file ? file.originalname : (body.original_file_name || parsedFilename || "Document");
+        let stored_file_name = file ? file.filename : (body.stored_file_name || parsedFilename || original_file_name);
+        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (parsedFilename ? path.extname(parsedFilename).toLowerCase() : null));
+        let mime_type = file ? file.mimetype : (body.mime_type || null);
+        let file_size = file ? file.size : (body.file_size || null);
 
         const {
             document_type_id = 1,
             document_number,
             document_title = original_file_name || "Document",
             document_description,
-            storage_provider = "LOCAL",
+            storage_provider = file ? "LOCAL" : "AWS_S3",
             storage_bucket = "uploads/documents",
             storage_path = generatedPath || body.storage_path,
-            cdn_url = generatedUrl || body.cdn_url,
-            thumbnail_url = generatedUrl || body.thumbnail_url,
+            cdn_url = finalCdnUrl,
+            thumbnail_url = finalCdnUrl,
             checksum_sha256,
             issue_date,
             expiry_date,
@@ -65,10 +73,10 @@ const uploadPropertyDocument = async (req, res) => {
             remarks
         } = body;
 
-        if (!document_type_id || !original_file_name || !stored_file_name) {
+        if (!document_type_id || (!file && !finalCdnUrl && (!original_file_name || !stored_file_name))) {
             return res.status(400).json({
                 success: false,
-                message: "Document file or metadata (document_type_id, original_file_name, and stored_file_name) is required"
+                message: "Document file or external URL (cdn_url/url) is required"
             });
         }
 

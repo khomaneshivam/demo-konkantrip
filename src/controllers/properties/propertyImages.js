@@ -35,25 +35,33 @@ const addPropertyImage = async (req, res) => {
         const body = req.body || {};
         const file = req.file;
 
-        let original_name = file ? file.originalname : body.original_file_name;
-        let stored_name = file ? file.filename : (body.stored_file_name || body.storage_key);
-        let ext = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || null);
-        let mime = file ? file.mimetype : (body.mime_type || null);
-        let size = file ? file.size : (body.file_size || null);
-
         const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
         const protocol = req.protocol || "http";
         const generatedUrl = file ? `${protocol}://${host}/uploads/properties/${file.filename}` : null;
+        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+
+        let parsedFilename = null;
+        if (finalCdnUrl) {
+            try {
+                parsedFilename = path.basename(new URL(finalCdnUrl, "http://localhost").pathname);
+            } catch (_) {}
+        }
+
+        let original_name = file ? file.originalname : (body.original_file_name || body.original_name || parsedFilename || "Property Image");
+        let stored_name = file ? file.filename : (body.stored_file_name || body.storage_key || parsedFilename || original_name);
+        let ext = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (parsedFilename ? path.extname(parsedFilename).toLowerCase() : null));
+        let mime = file ? file.mimetype : (body.mime_type || null);
+        let size = file ? file.size : (body.file_size || null);
 
         const {
             image_type_id = 1,
             image_title = original_name || "Property Image",
             image_alt_text,
-            storage_provider = "LOCAL",
+            storage_provider = file ? "LOCAL" : "AWS_S3",
             storage_bucket = "uploads/properties",
             storage_key = stored_name,
-            cdn_url = generatedUrl || body.cdn_url,
-            thumbnail_url = generatedUrl || body.thumbnail_url,
+            cdn_url = finalCdnUrl,
+            thumbnail_url = finalCdnUrl,
             mime_type = mime,
             file_extension = ext,
             file_size = size,
@@ -64,9 +72,8 @@ const addPropertyImage = async (req, res) => {
             is_active = true
         } = body;
 
-        const finalCdnUrl = cdn_url || generatedUrl;
         if (!image_type_id || !finalCdnUrl) {
-            return res.status(400).json({ success: false, message: "image_type_id and image file/cdn_url are required" });
+            return res.status(400).json({ success: false, message: "image_type_id and image file/cdn_url (or url) are required" });
         }
 
         const normalizedProvider = normalizeStorageProvider(storage_provider);

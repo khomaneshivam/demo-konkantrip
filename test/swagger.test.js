@@ -35,18 +35,18 @@ test("Swagger: All key API v1 paths are documented", () => {
     // Properties
     assert.ok(paths.includes("/api/v1/properties"));
     assert.ok(paths.includes("/api/v1/properties/{id}"));
-    assert.ok(paths.includes("/api/v1/properties/{propertyId}/location"));
-    assert.ok(paths.includes("/api/v1/properties/{propertyId}/images"));
-    assert.ok(paths.includes("/api/v1/properties/{propertyId}/amenities"));
-    assert.ok(paths.includes("/api/v1/properties/{propertyId}/policies"));
+    assert.ok(paths.includes("/api/v1/properties/location/{propertyId}"));
+    assert.ok(paths.includes("/api/v1/properties/images/{propertyId}"));
+    assert.ok(paths.includes("/api/v1/properties/amenities/{propertyId}"));
+    assert.ok(paths.includes("/api/v1/properties/policies/{propertyId}"));
 
     // Rooms
     assert.ok(paths.includes("/api/v1/rooms"));
     assert.ok(paths.includes("/api/v1/rooms/{id}"));
-    assert.ok(paths.includes("/api/v1/rooms/{roomId}/images"));
-    assert.ok(paths.includes("/api/v1/rooms/{roomId}/beds"));
-    assert.ok(paths.includes("/api/v1/rooms/{roomId}/amenities"));
-    assert.ok(paths.includes("/api/v1/rooms/{roomId}/facilities"));
+    assert.ok(paths.includes("/api/v1/rooms/images/{roomId}"));
+    assert.ok(paths.includes("/api/v1/rooms/beds/{roomId}"));
+    assert.ok(paths.includes("/api/v1/rooms/amenities/{roomId}"));
+    assert.ok(paths.includes("/api/v1/rooms/facilities/{roomId}"));
 
     // Inventory
     assert.ok(paths.includes("/api/v1/inventory/rooms"));

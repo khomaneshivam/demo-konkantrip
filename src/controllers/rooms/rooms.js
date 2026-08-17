@@ -178,9 +178,66 @@ const syncPropertyStartingPrice = async (propertyId) => {
     }
 };
 
+const ROOM_COLUMNS = new Set([
+    "property_id",
+    "room_type_id",
+    "room_status_id",
+    "room_view_id",
+    "room_name",
+    "room_code",
+    "room_slug",
+    "room_number",
+    "internal_reference",
+    "description",
+    "short_description",
+    "room_area",
+    "room_area_unit",
+    "floor_number",
+    "maximum_adults",
+    "maximum_children",
+    "maximum_guests",
+    "base_occupancy",
+    "minimum_occupancy",
+    "bathrooms",
+    "balconies",
+    "bedrooms",
+    "living_rooms",
+    "kitchens",
+    "smoking_allowed",
+    "pets_allowed",
+    "extra_bed_allowed",
+    "extra_bed_count",
+    "extra_bed_price",
+    "breakfast_included",
+    "air_conditioned",
+    "soundproof",
+    "wheelchair_accessible",
+    "housekeeping_available",
+    "housekeeping_frequency",
+    "room_size_category",
+    "room_condition",
+    "sort_order",
+    "is_featured",
+    "is_published",
+    "is_bookable",
+    "is_active",
+    "remarks",
+    "base_price",
+    "discount_price",
+    "extra_adult_price",
+    "extra_child_price"
+]);
+
 const createRoom = async (req, res) => {
     try {
         const body = { ...req.body };
+
+        // Map price to base_price if price was sent
+        if (body.price !== undefined && body.base_price === undefined) {
+            body.base_price = body.price;
+        }
+        delete body.price;
+
         const {
             property_id,
             room_type_id,
@@ -214,13 +271,19 @@ const createRoom = async (req, res) => {
         delete body.room_uuid;
         delete body.created_at;
         delete body.updated_at;
+        delete body.delete_status;
 
         const payload = {
-            ...body,
             room_uuid: roomUuid,
             room_slug: roomSlug,
             created_by: req.user?.p_owner_id || req.user?.admin_id || null
         };
+
+        for (const [key, value] of Object.entries(body)) {
+            if (ROOM_COLUMNS.has(key) && value !== undefined) {
+                payload[key] = value;
+            }
+        }
 
         const fields = Object.keys(payload);
         const values = Object.values(payload);
@@ -244,17 +307,34 @@ const updateRoom = async (req, res) => {
     try {
         const roomId = req.params.id;
         const body = { ...req.body };
+
+        // Map price to base_price if price was sent
+        if (body.price !== undefined && body.base_price === undefined) {
+            body.base_price = body.price;
+        }
+        delete body.price;
         delete body.room_id;
         delete body.room_uuid;
         delete body.property_id; // prevent moving rooms across properties
+        delete body.created_at;
+        delete body.updated_at;
+        delete body.delete_status;
+        delete body.created_by;
 
-        const fields = Object.keys(body);
+        const updatePayload = {};
+        for (const [key, value] of Object.entries(body)) {
+            if (ROOM_COLUMNS.has(key) && key !== "property_id" && value !== undefined) {
+                updatePayload[key] = value;
+            }
+        }
+
+        const fields = Object.keys(updatePayload);
         if (fields.length === 0) {
             return res.status(400).json({ success: false, message: "No fields to update" });
         }
 
         const setClauses = fields.map(f => `${f} = ?`).join(", ") + ", updated_by = ?";
-        const values = [...Object.values(body), req.user?.p_owner_id || req.user?.admin_id || null, roomId];
+        const values = [...Object.values(updatePayload), req.user?.p_owner_id || req.user?.admin_id || null, roomId];
 
         const [result] = await db.query(`UPDATE rooms SET ${setClauses} WHERE room_id = ? AND delete_status = FALSE`, values);
         if (result.affectedRows === 0) {

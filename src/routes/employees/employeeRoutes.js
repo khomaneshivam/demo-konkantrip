@@ -28,10 +28,10 @@ router.put("/employees/:id", requireOwnerOrAdmin, requirePermission("employees:u
 router.delete("/employees/:id", requireOwnerOrAdmin, requirePermission("employees:delete"), employeesCtrl.deleteEmployee);
 
 // --- Employee Property Assignments ---
-router.post("/employees/:id/assign-property", requireOwnerOrAdmin, requirePermission("employees:update"), validate(assignPropertyValidator), employeesCtrl.assignEmployeeProperty);
-router.delete("/employees/:id/unassign-property/:propertyId", requireOwnerOrAdmin, requirePermission("employees:update"), employeesCtrl.unassignEmployeeProperty);
+router.post("/employees/assign-property/:id", requireOwnerOrAdmin, requirePermission("employees:update"), validate(assignPropertyValidator), employeesCtrl.assignEmployeeProperty);
+router.delete("/employees/unassign-property/:id/:propertyId", requireOwnerOrAdmin, requirePermission("employees:update"), employeesCtrl.unassignEmployeeProperty);
 
 // --- Property-Specific Employees List ---
-router.get("/properties/:propertyId/employees", requirePropertyOwnership, requirePermission("employees:read"), employeesCtrl.getPropertyEmployees);
+router.get("/properties/employees/:propertyId", requirePropertyOwnership, requirePermission("employees:read"), employeesCtrl.getPropertyEmployees);
 
 module.exports = router;

@@ -22,7 +22,7 @@ router.post('/document', uploadDocument.single('file'), uploadController.uploadD
 
 // Direct property image upload + db record creation
 router.post(
-    '/property/:propertyId/image',
+    '/property/image/:propertyId',
     requirePropertyOwnership,
     uploadPropertyImage.single('file'),
     uploadController.uploadPropertyImageDirect
@@ -30,14 +30,14 @@ router.post(
 
 // Direct room image upload + db record creation
 router.post(
-    '/room/:roomId/image',
+    '/room/image/:roomId',
     uploadRoomImage.single('file'),
     uploadController.uploadRoomImageDirect
 );
 
 // Direct property document upload + db record creation
 router.post(
-    '/property/:propertyId/document',
+    '/property/document/:propertyId',
     requirePropertyOwnership,
     uploadDocument.single('file'),
     uploadController.uploadPropertyDocumentDirect

@@ -235,7 +235,7 @@ const employeePaths = {
             }
         }
     },
-    "/api/v1/properties/{propertyId}/employees": {
+    "/api/v1/properties/employees/{propertyId}": {
         get: {
             tags: ["CRM Employees"],
             summary: "List active employees assigned to a property",

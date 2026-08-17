@@ -5,7 +5,7 @@ const getRoomInventory = async (req, res) => {
         const { property_id, room_id } = req.query;
         let query = `
             SELECT ri.*, r.room_name, r.room_code, p.property_name
-            FROM room_inventory ri
+            FROM inventory ri
             INNER JOIN rooms r ON r.room_id = ri.room_id
             INNER JOIN properties p ON p.property_id = ri.property_id
             WHERE ri.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE

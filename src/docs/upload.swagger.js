@@ -138,7 +138,7 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/property/{propertyId}/image': {
+        '/api/v1/upload/property/image/{propertyId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload property image and save record to property_images',
@@ -177,7 +177,7 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/room/{roomId}/image': {
+        '/api/v1/upload/room/image/{roomId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload room image and save record to room_images',
@@ -215,7 +215,7 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/property/{propertyId}/document': {
+        '/api/v1/upload/property/document/{propertyId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload property verification document and save to property_documents',

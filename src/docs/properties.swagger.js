@@ -108,7 +108,7 @@ const propertyPaths = {
             }
         }
     },
-    "/api/v1/properties/{propertyId}/location": {
+    "/api/v1/properties/location/{propertyId}": {
         get: {
             tags: ["Properties"],
             summary: "Get property location / address",

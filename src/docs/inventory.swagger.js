@@ -164,7 +164,7 @@ const inventoryPaths = {
             responses: { "201": { description: "Room block created." } }
         }
     },
-    "/api/v1/inventory/blocks/{blockId}/release": {
+    "/api/v1/inventory/blocks/release/{blockId}": {
         put: {
             tags: ["Inventory & Calendar"],
             summary: "Release active room block",
@@ -210,7 +210,7 @@ const inventoryPaths = {
             responses: { "201": { description: "Stop sell created." } }
         }
     },
-    "/api/v1/inventory/stop-sell/{id}/release": {
+    "/api/v1/inventory/stop-sell/release/{id}": {
         put: {
             tags: ["Inventory & Calendar"],
             summary: "Release stop sell restriction",

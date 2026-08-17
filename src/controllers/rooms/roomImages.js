@@ -35,16 +35,24 @@ const addRoomImage = async (req, res) => {
         const body = req.body || {};
         const file = req.file;
 
-        let original_file_name = file ? file.originalname : body.original_file_name;
-        let stored_file_name = file ? file.filename : body.stored_file_name;
-        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || null);
-        let mime_type = file ? file.mimetype : (body.mime_type || null);
-        let file_size = file ? file.size : (body.file_size || null);
-
         const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
         const protocol = req.protocol || "http";
         const generatedUrl = file ? `${protocol}://${host}/uploads/rooms/${file.filename}` : null;
         const generatedPath = file ? `/uploads/rooms/${file.filename}` : null;
+        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+
+        let parsedFilename = null;
+        if (finalCdnUrl) {
+            try {
+                parsedFilename = path.basename(new URL(finalCdnUrl, "http://localhost").pathname);
+            } catch (_) {}
+        }
+
+        let original_file_name = file ? file.originalname : (body.original_file_name || parsedFilename || "Room Image");
+        let stored_file_name = file ? file.filename : (body.stored_file_name || parsedFilename || original_file_name);
+        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (parsedFilename ? path.extname(parsedFilename).toLowerCase() : null));
+        let mime_type = file ? file.mimetype : (body.mime_type || null);
+        let file_size = file ? file.size : (body.file_size || null);
 
         const {
             room_image_type_id = 1,
@@ -55,11 +63,11 @@ const addRoomImage = async (req, res) => {
             image_width,
             image_height,
             aspect_ratio,
-            storage_provider = "LOCAL",
+            storage_provider = file ? "LOCAL" : "AWS_S3",
             storage_bucket = "uploads/rooms",
             storage_path = generatedPath || body.storage_path,
-            cdn_url = generatedUrl || body.cdn_url,
-            thumbnail_url = generatedUrl || body.thumbnail_url,
+            cdn_url = finalCdnUrl,
+            thumbnail_url = finalCdnUrl,
             webp_url,
             avif_url,
             is_cover_image = false,
@@ -71,11 +79,10 @@ const addRoomImage = async (req, res) => {
             remarks
         } = body;
 
-        const finalCdnUrl = cdn_url || generatedUrl;
-        if (!room_image_type_id || !original_file_name || !stored_file_name || !finalCdnUrl) {
+        if (!room_image_type_id || !finalCdnUrl) {
             return res.status(400).json({
                 success: false,
-                message: "room_image_type_id, image file/details, and cdn_url are required"
+                message: "room_image_type_id and image file/cdn_url (or url) are required"
             });
         }
 
