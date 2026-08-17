@@ -57,6 +57,10 @@ const roomPaths = {
                                 room_code: { type: "string", example: "DLX-101" },
                                 maximum_guests: { type: "integer", example: 3 },
                                 base_occupancy: { type: "integer", example: 2 },
+                                base_price: { type: "number", example: 3500.00 },
+                                discount_price: { type: "number", example: 2999.00 },
+                                extra_adult_price: { type: "number", example: 500.00 },
+                                extra_child_price: { type: "number", example: 250.00 },
                                 air_conditioned: { type: "boolean", example: true },
                                 is_bookable: { type: "boolean", example: true }
                             }
@@ -69,6 +73,70 @@ const roomPaths = {
                 "400": errorResponse("Validation error."),
                 "401": errorResponse("Unauthorized.")
             }
+        }
+    },
+    // Room Seasonal Rates & Dynamic Pricing
+    "/api/v1/rooms/rates/{roomId}": {
+        get: {
+            tags: ["Rooms"],
+            summary: "Get room seasonal & discount pricing rules",
+            parameters: [
+                { name: "roomId", in: "path", required: true, schema: { type: "string" } },
+                { name: "property_id", in: "query", required: false, schema: { type: "integer" } }
+            ],
+            responses: { "200": { description: "List of seasonal pricing rules." } }
+        },
+        post: {
+            tags: ["Rooms"],
+            summary: "Create seasonal or weekend price rule for a room",
+            security: [{ BearerAuth: [] }],
+            parameters: [{ name: "roomId", in: "path", required: true, schema: { type: "string" } }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["property_id", "rate_name", "start_date", "end_date", "base_price"],
+                            properties: {
+                                property_id: { type: "integer", example: 1 },
+                                rate_name: { type: "string", example: "Diwali Special Offer" },
+                                start_date: { type: "string", example: "2026-10-20" },
+                                end_date: { type: "string", example: "2026-11-05" },
+                                base_price: { type: "number", example: 4500.00 },
+                                discount_price: { type: "number", example: 3999.00 },
+                                extra_adult_price: { type: "number", example: 600.00 },
+                                extra_child_price: { type: "number", example: 300.00 },
+                                days_of_week: { type: "string", example: "Fri,Sat,Sun" },
+                                is_active: { type: "boolean", example: true }
+                            }
+                        }
+                    }
+                }
+            },
+            responses: { "201": { description: "Seasonal rate rule created successfully." } }
+        }
+    },
+    "/api/v1/rooms/rates/{roomId}/{rateId}": {
+        put: {
+            tags: ["Rooms"],
+            summary: "Update a seasonal or weekend price rule",
+            security: [{ BearerAuth: [] }],
+            parameters: [
+                { name: "roomId", in: "path", required: true, schema: { type: "string" } },
+                { name: "rateId", in: "path", required: true, schema: { type: "integer" } }
+            ],
+            responses: { "200": { description: "Seasonal rate rule updated successfully." } }
+        },
+        delete: {
+            tags: ["Rooms"],
+            summary: "Delete a seasonal price rule",
+            security: [{ BearerAuth: [] }],
+            parameters: [
+                { name: "roomId", in: "path", required: true, schema: { type: "string" } },
+                { name: "rateId", in: "path", required: true, schema: { type: "integer" } }
+            ],
+            responses: { "200": { description: "Seasonal rate rule deleted successfully." } }
         }
     },
     "/api/v1/rooms/{id}": {
@@ -109,7 +177,7 @@ const roomPaths = {
         }
     },
     // Room Images
-    "/api/v1/rooms/{roomId}/images": {
+    "/api/v1/rooms/images/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room photos",
@@ -143,7 +211,7 @@ const roomPaths = {
         }
     },
     // Room Beds
-    "/api/v1/rooms/{roomId}/beds": {
+    "/api/v1/rooms/beds/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get bed configuration for room",
@@ -176,7 +244,7 @@ const roomPaths = {
         }
     },
     // Room Amenities
-    "/api/v1/rooms/{roomId}/amenities": {
+    "/api/v1/rooms/amenities/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room-level amenities",
@@ -208,7 +276,7 @@ const roomPaths = {
         }
     },
     // Room Facilities
-    "/api/v1/rooms/{roomId}/facilities": {
+    "/api/v1/rooms/facilities/{roomId}": {
         get: {
             tags: ["Rooms"],
             summary: "Get room facilities mapping",

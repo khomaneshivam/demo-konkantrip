@@ -52,13 +52,13 @@ router.post("/transactions", authMiddleware, requireOwnerOrAdmin, createInventor
 // 4. Room Blocks
 router.get("/blocks", getRoomBlocks);
 router.post("/blocks", authMiddleware, requireOwnerOrAdmin, createRoomBlock);
-router.put("/blocks/:blockId/release", authMiddleware, requireOwnerOrAdmin, releaseRoomBlock);
-router.put("/blocks/:blockId/cancel", authMiddleware, requireOwnerOrAdmin, cancelRoomBlock);
+router.put("/blocks/release/:blockId", authMiddleware, requireOwnerOrAdmin, releaseRoomBlock);
+router.put("/blocks/cancel/:blockId", authMiddleware, requireOwnerOrAdmin, cancelRoomBlock);
 
 // 5. Stop Sell Restrictions
 router.get("/stop-sell", getStopSellRules);
 router.post("/stop-sell", authMiddleware, requireOwnerOrAdmin, createStopSellRule);
-router.put("/stop-sell/:id/release", authMiddleware, requireOwnerOrAdmin, releaseStopSellRule);
-router.put("/stop-sell/:id/cancel", authMiddleware, requireOwnerOrAdmin, cancelStopSellRule);
+router.put("/stop-sell/release/:id", authMiddleware, requireOwnerOrAdmin, releaseStopSellRule);
+router.put("/stop-sell/cancel/:id", authMiddleware, requireOwnerOrAdmin, cancelStopSellRule);
 
 module.exports = router;

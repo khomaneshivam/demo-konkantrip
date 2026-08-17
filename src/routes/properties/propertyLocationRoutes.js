@@ -9,9 +9,9 @@ const {
 
 const router = express.Router();
 
-router.get("/:propertyId/location", getPropertyLocation);
-router.post("/:propertyId/location", authMiddleware, createPropertyLocation);
-router.put("/:propertyId/location", authMiddleware, updatePropertyLocation);
-router.delete("/:propertyId/location", authMiddleware, deletePropertyLocation);
+router.get("/location/:propertyId", getPropertyLocation);
+router.post("/location/:propertyId", authMiddleware, createPropertyLocation);
+router.put("/location/:propertyId", authMiddleware, updatePropertyLocation);
+router.delete("/location/:propertyId", authMiddleware, deletePropertyLocation);
 
 module.exports = router;

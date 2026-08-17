@@ -7,7 +7,7 @@ const getPropertyLanguages = async (req, res) => {
             `SELECT pl.*, l.language_name, l.native_name, l.iso_639_1, l.flag_icon
              FROM property_languages pl
              INNER JOIN languages l ON l.language_id = pl.language_id
-             WHERE pl.property_id = ? AND pl.delete_status = FALSE
+             WHERE pl.property_id = ? AND pl.delete_status = FALSE AND l.is_active = TRUE
              ORDER BY pl.is_primary DESC, l.language_name ASC`,
             [propertyId]
         );
@@ -45,7 +45,7 @@ const addPropertyLanguage = async (req, res) => {
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM property_languages WHERE property_language_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_languages WHERE property_language_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Language added", data: created[0] });
     } catch (error) {
         console.error("Error adding property language:", error);
@@ -57,7 +57,7 @@ const deletePropertyLanguage = async (req, res) => {
     try {
         const { id } = req.params;
         const [result] = await db.query(
-            "UPDATE property_languages SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE property_language_id = ?",
+            "UPDATE property_languages SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE property_language_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, id]
         );
 

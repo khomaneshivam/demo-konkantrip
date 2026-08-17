@@ -6,7 +6,7 @@ const propertySubResourceTags = [
 
 const propertySubResourcePaths = {
     // Contacts
-    "/api/v1/properties/{propertyId}/contacts": {
+    "/api/v1/properties/contacts/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property contacts",
@@ -39,7 +39,7 @@ const propertySubResourcePaths = {
         }
     },
     // Images
-    "/api/v1/properties/{propertyId}/images": {
+    "/api/v1/properties/images/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property gallery images",
@@ -71,7 +71,7 @@ const propertySubResourcePaths = {
         }
     },
     // Amenities
-    "/api/v1/properties/{propertyId}/amenities": {
+    "/api/v1/properties/amenities/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property amenities",
@@ -109,7 +109,7 @@ const propertySubResourcePaths = {
         }
     },
     // Highlights
-    "/api/v1/properties/{propertyId}/highlights": {
+    "/api/v1/properties/highlights/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property highlights",
@@ -140,7 +140,7 @@ const propertySubResourcePaths = {
         }
     },
     // Policies
-    "/api/v1/properties/{propertyId}/policies": {
+    "/api/v1/properties/policies/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property policies",
@@ -160,7 +160,7 @@ const propertySubResourcePaths = {
         }
     },
     // House Rules
-    "/api/v1/properties/{propertyId}/house-rules": {
+    "/api/v1/properties/house-rules/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property house rules",
@@ -191,7 +191,7 @@ const propertySubResourcePaths = {
         }
     },
     // Nearby Places
-    "/api/v1/properties/{propertyId}/nearby-places": {
+    "/api/v1/properties/nearby-places/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get nearby tourist spots and transit",
@@ -223,7 +223,7 @@ const propertySubResourcePaths = {
         }
     },
     // Statistics
-    "/api/v1/properties/{propertyId}/statistics": {
+    "/api/v1/properties/statistics/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get property traffic and booking metrics",
@@ -231,7 +231,7 @@ const propertySubResourcePaths = {
             responses: { "200": { description: "Property statistics." } }
         }
     },
-    "/api/v1/properties/{propertyId}/statistics/view": {
+    "/api/v1/properties/statistics/view/{propertyId}": {
         post: {
             tags: ["Property Sub-Resources"],
             summary: "Increment page view counter for property",
@@ -240,7 +240,7 @@ const propertySubResourcePaths = {
         }
     },
     // Documents
-    "/api/v1/properties/{propertyId}/documents": {
+    "/api/v1/properties/documents/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get compliance documents",
@@ -286,7 +286,7 @@ const propertySubResourcePaths = {
             responses: { "201": { description: "Document uploaded and submitted for verification." } }
         }
     },
-    "/api/v1/properties/{propertyId}/documents/{documentId}/verify": {
+    "/api/v1/properties/documents/verify/{propertyId}/{documentId}": {
         put: {
             tags: ["Property Sub-Resources"],
             summary: "Verify or reject compliance document (Admin only)",
@@ -315,7 +315,7 @@ const propertySubResourcePaths = {
         }
     },
     // Languages
-    "/api/v1/properties/{propertyId}/languages": {
+    "/api/v1/properties/languages/{propertyId}": {
         get: {
             tags: ["Property Sub-Resources"],
             summary: "Get languages spoken by property staff",

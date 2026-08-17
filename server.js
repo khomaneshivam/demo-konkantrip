@@ -1,9 +1,12 @@
-require("dotenv").config();
+const { env, validateEnv } = require("./src/config/env");
+validateEnv();
+
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const logger = require("./src/utils/logger");
 
 // Auth Routes
 const propertyOwnerRegisterRoutes = require("./src/routes/auth/propertyOwnerRegisterRoutes");
@@ -12,6 +15,7 @@ const propertyOwnerLoginLogsRoutes = require("./src/routes/auth/propertyOwnerLog
 const propertyOwnerUpdatePasswordRoutes = require("./src/routes/auth/propertyOwnerUpdatePasswordRoutes");
 const adminAuthRoutes = require("./src/routes/auth/adminAuthRoutes");
 const adminDashboardRoutes = require("./src/routes/admin/adminDashboardRoutes");
+const employeeAuthRoutes = require("./src/routes/auth/employeeAuthRoutes");
 
 // Lookup Routes
 const masterLookupRoutes = require("./src/routes/lookups/masterLookupRoutes");
@@ -25,6 +29,9 @@ const propertySubResourceRoutes = require("./src/routes/properties/propertySubRe
 
 // Room Routes
 const roomRoutes = require("./src/routes/rooms/roomRoutes");
+
+// CRM & Employees Routes
+const employeeRoutes = require("./src/routes/employees/employeeRoutes");
 
 const path = require("path");
 
@@ -54,13 +61,13 @@ app.use(helmet({
     contentSecurityPolicy: false // Allows Swagger UI to load scripts properly
 }));
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || true,
+    origin: env.CORS_ORIGIN,
     credentials: true
 }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
-if (process.env.NODE_ENV !== "test") {
+if (!env.isTest) {
     app.use(morgan("dev"));
 }
 
@@ -104,10 +111,15 @@ app.use("/api/v1/login", authLimiter, propertyOwnerLoginRoutes);
 app.use("/api/v1/update-password", propertyOwnerUpdatePasswordRoutes);
 app.use("/api/v1/property_owner_login_logs", propertyOwnerLoginLogsRoutes);
 app.use("/api/v1/admin", adminAuthRoutes);
+app.use("/api/v1/auth/employee", employeeAuthRoutes);
 
 // Admin Dashboard Routes (v1)
 const { requireAdmin } = require("./src/middlewares/roleMiddleware");
 app.use("/api/v1/admin/dashboard", authMiddleware, requireAdmin, adminDashboardRoutes);
+
+// CRM Employees & Roles (v1)
+app.use("/api/v1", employeeRoutes);
+app.use("/api/v1/crm", employeeRoutes);
 
 // Master Lookups & Catalogs (v1)
 app.use("/api/v1/lookups/master", masterLookupRoutes);
@@ -126,6 +138,9 @@ app.use("/api/v1/rooms", roomRoutes);
 app.use("/api/v1/inventory", inventoryRoutes);
 
 // Direct File Upload & Media Storage (v1)
+const { ensureUploadDirectories } = require("./src/middlewares/uploadMiddleware");
+ensureUploadDirectories();
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/v1/upload", uploadLimiter, uploadRoutes);
 
@@ -150,7 +165,13 @@ app.use((req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-    console.error("Unhandled API Error:", err);
+    if (err && (err.name === "MulterError" || err.code === "LIMIT_FILE_SIZE")) {
+        return res.status(400).json({
+            success: false,
+            message: err.code === "LIMIT_FILE_SIZE" ? "File size exceeds allowed limit" : `Upload error: ${err.message}`
+        });
+    }
+    logger.error("Unhandled API Error:", { error: err.message, stack: err.stack, requestId: req.id });
     res.status(err.status || 500).json({
         success: false,
         message: err.message || "Internal Server Error"
@@ -158,22 +179,32 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
-    const port = process.env.PORT || 3000;
+    const { initializeEmployeeTables } = require("./src/config/createEmployeeTables");
+    const { initializePricingTables } = require("./src/config/createPricingTables");
+    
+    initializeEmployeeTables().catch(err => {
+        logger.warn("Employee tables initialization warning:", { error: err.message });
+    });
+    initializePricingTables().catch(err => {
+        logger.warn("Pricing tables initialization warning:", { error: err.message });
+    });
+
+    const port = env.PORT;
     const server = app.listen(port, () => {
-        console.log(`Server is running on port ${port}`);
-        console.log(`API Documentation available at http://localhost:${port}/api-docs`);
+        logger.info(`Server is running on port ${port}`);
+        logger.info(`API Documentation available at http://localhost:${port}/api-docs`);
     });
 
     const shutdown = async (signal) => {
-        console.log(`\nReceived ${signal}. Gracefully shutting down server...`);
+        logger.info(`Received ${signal}. Gracefully shutting down server...`);
         server.close(async () => {
-            console.log("HTTP server closed. Draining database connection pool...");
+            logger.info("HTTP server closed. Draining database connection pool...");
             try {
                 if (db.end) {
                     await db.end();
                 }
             } catch (err) {
-                console.error("Error closing DB pool:", err);
+                logger.error("Error closing DB pool:", { error: err.message });
             }
             process.exit(0);
         });
@@ -184,3 +215,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+

@@ -7,7 +7,7 @@ const getPropertyTags = async (req, res) => {
             `SELECT pt.*, t.tag_name, t.tag_slug, t.tag_color
              FROM property_tags pt
              INNER JOIN tags t ON t.tag_id = pt.tag_id
-             WHERE pt.property_id = ?`,
+             WHERE pt.property_id = ? AND t.is_active = TRUE`,
             [propertyId]
         );
         return res.status(200).json({ success: true, data: rows });

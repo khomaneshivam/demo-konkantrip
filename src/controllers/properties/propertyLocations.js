@@ -132,7 +132,7 @@ const createPropertyLocation = async (req, res) => {
         }
 
         const [rows] = await db.query(
-            "SELECT * FROM property_locations WHERE property_id = ? LIMIT 1",
+            "SELECT * FROM property_locations WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
             [propertyId]
         );
         return res.status(201).json({ success: true, message: "Property location saved successfully", data: rows[0] });
@@ -162,7 +162,7 @@ const updatePropertyLocation = async (req, res) => {
         );
         if (result.affectedRows === 0) return res.status(404).json({ success: false, message: "Property location not found" });
 
-        const [rows] = await db.query("SELECT * FROM property_locations WHERE property_id = ? LIMIT 1", [propertyId]);
+        const [rows] = await db.query("SELECT * FROM property_locations WHERE property_id = ? AND delete_status = FALSE LIMIT 1", [propertyId]);
         return res.status(200).json({ success: true, message: "Property location updated successfully", data: rows[0] });
     } catch (error) {
         console.error(error);

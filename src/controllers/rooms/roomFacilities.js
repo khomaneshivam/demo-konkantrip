@@ -8,7 +8,7 @@ const getRoomFacilities = async (req, res) => {
              FROM room_facilities_mapping rfm
              INNER JOIN room_facilities rf ON rf.room_facility_id = rfm.room_facility_id
              LEFT JOIN room_facility_categories rfc ON rfc.room_facility_category_id = rf.room_facility_category_id
-             WHERE rfm.room_id = ? AND rfm.delete_status = FALSE
+             WHERE rfm.room_id = ? AND rfm.delete_status = FALSE AND rf.is_active = TRUE AND (rfc.is_active IS NULL OR rfc.is_active = TRUE)
              ORDER BY rfm.display_order ASC`,
             [roomId]
         );
@@ -71,7 +71,7 @@ const deleteRoomFacility = async (req, res) => {
     try {
         const { roomId, facilityId } = req.params;
         const [result] = await db.query(
-            "UPDATE room_facilities_mapping SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND room_facility_id = ?",
+            "UPDATE room_facilities_mapping SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND room_facility_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, roomId, facilityId]
         );
 

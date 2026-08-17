@@ -7,7 +7,7 @@ const getRoomAmenities = async (req, res) => {
             `SELECT ra.*, a.amenity_name, a.amenity_icon, a.amenity_description
              FROM room_amenities ra
              INNER JOIN amenities a ON a.amenity_id = ra.amenity_id
-             WHERE ra.room_id = ? AND ra.delete_status = FALSE
+             WHERE ra.room_id = ? AND ra.delete_status = FALSE AND a.status = TRUE
              ORDER BY ra.display_order ASC`,
             [roomId]
         );
@@ -70,7 +70,7 @@ const deleteRoomAmenity = async (req, res) => {
     try {
         const { roomId, amenityId } = req.params;
         const [result] = await db.query(
-            "UPDATE room_amenities SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND amenity_id = ?",
+            "UPDATE room_amenities SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND amenity_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, roomId, amenityId]
         );
 

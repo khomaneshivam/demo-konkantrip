@@ -4,6 +4,9 @@ const db = require("../../config/db");
  * Generic helper for simple lookup table CRUD
  */
 const createLookupController = (tableName, primaryKey, uniqueNameField = "name", options = {}) => {
+    const hasActive = options.hasActiveField !== false;
+    const activeCol = options.activeColumn || options.activeField || "is_active";
+
     return {
         getAll: async (req, res) => {
             try {
@@ -11,9 +14,10 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
                 const conditions = [];
                 const params = [];
 
-                if (options.hasActiveField !== false) {
-                    if (req.query.active_only === "true") {
-                        conditions.push("is_active = TRUE");
+                if (hasActive) {
+                    const includeInactive = req.query.include_inactive === "true" || req.query.all === "true";
+                    if (!includeInactive) {
+                        conditions.push(`${activeCol} = TRUE`);
                     }
                 }
 
@@ -38,7 +42,8 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
         getById: async (req, res) => {
             try {
                 const id = req.params.id;
-                const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [id]);
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
+                const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [id]);
                 if (rows.length === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }
@@ -65,7 +70,8 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
                 const query = `INSERT INTO ${tableName} (${fields.join(", ")}) VALUES (${placeholders})`;
                 const [result] = await db.query(query, values);
 
-                const [created] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [result.insertId]);
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
+                const [created] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [result.insertId]);
                 return res.status(201).json({ success: true, message: "Created successfully", data: created[0] });
             } catch (error) {
                 console.error(`Error creating ${tableName}:`, error);
@@ -86,13 +92,14 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
 
                 const setClauses = fields.map(f => `${f} = ?`).join(", ");
                 const values = [...Object.values(body), id];
+                const activeClause = hasActive ? ` AND ${activeCol} = TRUE` : "";
 
-                const [result] = await db.query(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?`, values);
+                const [result] = await db.query(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?${activeClause}`, values);
                 if (result.affectedRows === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }
 
-                const [updated] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [id]);
+                const [updated] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [id]);
                 return res.status(200).json({ success: true, message: "Updated successfully", data: updated[0] });
             } catch (error) {
                 console.error(`Error updating ${tableName}:`, error);
@@ -103,7 +110,13 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
         delete: async (req, res) => {
             try {
                 const id = req.params.id;
-                const [result] = await db.query(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`, [id]);
+                let result;
+                if (hasActive) {
+                    [result] = await db.query(`UPDATE ${tableName} SET ${activeCol} = FALSE WHERE ${primaryKey} = ? AND ${activeCol} = TRUE`, [id]);
+                } else {
+                    [result] = await db.query(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`, [id]);
+                }
+
                 if (result.affectedRows === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }
@@ -117,13 +130,13 @@ const createLookupController = (tableName, primaryKey, uniqueNameField = "name",
 };
 
 module.exports = {
-    languagesController: createLookupController("languages", "language_id", "language_name", { hasDisplayOrder: true }),
-    documentTypesController: createLookupController("document_types", "document_type_id", "document_name", { hasDisplayOrder: true }),
-    nearbyPlaceTypesController: createLookupController("nearby_place_types", "nearby_place_type_id", "place_type_name", { hasDisplayOrder: true }),
-    houseRuleCategoriesController: createLookupController("property_house_rule_categories", "rule_category_id", "category_name", { hasDisplayOrder: true }),
-    tagsController: createLookupController("tags", "tag_id", "tag_name", { hasDisplayOrder: true }),
-    propertyImageTypesController: createLookupController("property_image_types", "image_type_id", "image_type_name", { hasDisplayOrder: true }),
-    contactTypesController: createLookupController("contact_types", "contact_type_id", "contact_type_name", { hasDisplayOrder: true }),
-    certificationTypesController: createLookupController("certification_types", "certification_type_id", "certification_name", { hasDisplayOrder: true }),
-    mealPlansController: createLookupController("meal_plans", "meal_plan_id", "meal_plan_name", { hasDisplayOrder: true })
+    languagesController: createLookupController("languages", "language_id", "language_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    documentTypesController: createLookupController("document_types", "document_type_id", "document_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    nearbyPlaceTypesController: createLookupController("nearby_place_types", "nearby_place_type_id", "place_type_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    houseRuleCategoriesController: createLookupController("property_house_rule_categories", "rule_category_id", "category_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    tagsController: createLookupController("tags", "tag_id", "tag_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    propertyImageTypesController: createLookupController("property_image_types", "image_type_id", "image_type_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    contactTypesController: createLookupController("contact_types", "contact_type_id", "contact_type_name", { hasDisplayOrder: true, activeColumn: "status" }),
+    certificationTypesController: createLookupController("certification_types", "certification_type_id", "certification_name", { hasDisplayOrder: true, activeColumn: "is_active" }),
+    mealPlansController: createLookupController("meal_plans", "meal_plan_id", "meal_plan_name", { hasDisplayOrder: true, activeColumn: "is_active" })
 };

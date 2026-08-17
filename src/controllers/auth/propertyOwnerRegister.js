@@ -19,7 +19,7 @@ const registerUser = async (req, res) => {
 
         // Check if email already exists
         const [existingUser] = await db.query(
-            "SELECT p_owner_id FROM property_owners WHERE email = ? OR phone = ?",
+            "SELECT p_owner_id FROM property_owners WHERE (email = ? OR phone = ?) AND delete_status = FALSE",
             [email, phone]
         );
 

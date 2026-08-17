@@ -13,7 +13,7 @@ const getInventoryCalendar = async (req, res) => {
             FROM inventory_calendar ic
             INNER JOIN rooms r ON r.room_id = ic.room_id
             INNER JOIN properties p ON p.property_id = ic.property_id
-            WHERE ic.inventory_date BETWEEN ? AND ?
+            WHERE ic.inventory_date BETWEEN ? AND ? AND r.delete_status = FALSE AND p.delete_status = FALSE
         `;
         const params = [start_date, end_date];
 
@@ -50,6 +50,8 @@ const updateInventoryCalendarDay = async (req, res) => {
             blocked_units = 0,
             maintenance_units = 0,
             stop_sell_units = 0,
+            daily_price,
+            daily_discount_price,
             is_sellable = true,
             is_available = true,
             closed_for_arrival = false,
@@ -76,10 +78,10 @@ const updateInventoryCalendarDay = async (req, res) => {
             `INSERT INTO inventory_calendar (
                 inventory_id, room_id, property_id, inventory_date,
                 total_units, available_units, booked_units, blocked_units,
-                maintenance_units, stop_sell_units, is_sellable, is_available,
-                closed_for_arrival, closed_for_departure, minimum_stay_nights,
-                maximum_stay_nights, inventory_status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                maintenance_units, stop_sell_units, daily_price, daily_discount_price,
+                is_sellable, is_available, closed_for_arrival, closed_for_departure,
+                minimum_stay_nights, maximum_stay_nights, inventory_status, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 total_units = VALUES(total_units),
                 available_units = VALUES(available_units),
@@ -87,6 +89,8 @@ const updateInventoryCalendarDay = async (req, res) => {
                 blocked_units = VALUES(blocked_units),
                 maintenance_units = VALUES(maintenance_units),
                 stop_sell_units = VALUES(stop_sell_units),
+                daily_price = VALUES(daily_price),
+                daily_discount_price = VALUES(daily_discount_price),
                 is_sellable = VALUES(is_sellable),
                 is_available = VALUES(is_available),
                 closed_for_arrival = VALUES(closed_for_arrival),
@@ -98,7 +102,10 @@ const updateInventoryCalendarDay = async (req, res) => {
             [
                 inventory_id, room_id, property_id, inventory_date,
                 total_units, calculatedAvailable, booked_units, blocked_units,
-                maintenance_units, stop_sell_units, is_sellable, is_available,
+                maintenance_units, stop_sell_units,
+                daily_price !== undefined && daily_price !== null && daily_price !== "" ? Number(daily_price) : null,
+                daily_discount_price !== undefined && daily_discount_price !== null && daily_discount_price !== "" ? Number(daily_discount_price) : null,
+                is_sellable, is_available,
                 closed_for_arrival, closed_for_departure, minimum_stay_nights,
                 maximum_stay_nights || null, inventory_status, userId,
                 userId

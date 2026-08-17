@@ -7,7 +7,7 @@ const getRoomBeds = async (req, res) => {
             `SELECT rb.*, bt.bed_type_name, bt.bed_size, bt.width_cm, bt.length_cm, bt.maximum_occupancy
              FROM room_beds rb
              INNER JOIN bed_types bt ON bt.bed_type_id = rb.bed_type_id
-             WHERE rb.room_id = ? AND rb.delete_status = FALSE
+             WHERE rb.room_id = ? AND rb.delete_status = FALSE AND bt.is_active = TRUE
              ORDER BY rb.is_default DESC, rb.created_at ASC`,
             [roomId]
         );
@@ -49,7 +49,7 @@ const addRoomBed = async (req, res) => {
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM room_beds WHERE room_bed_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM room_beds WHERE room_bed_id = ? AND delete_status = FALSE", [result.insertId]);
         return res.status(201).json({ success: true, message: "Room bed added", data: created[0] });
     } catch (error) {
         console.error("Error adding room bed:", error);
@@ -78,7 +78,7 @@ const updateRoomBed = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room bed not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM room_beds WHERE room_bed_id = ?", [bedId]);
+        const [updated] = await db.query("SELECT * FROM room_beds WHERE room_bed_id = ? AND delete_status = FALSE", [bedId]);
         return res.status(200).json({ success: true, message: "Room bed updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating room bed:", error);
@@ -90,7 +90,7 @@ const deleteRoomBed = async (req, res) => {
     try {
         const { bedId } = req.params;
         const [result] = await db.query(
-            "UPDATE room_beds SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_bed_id = ?",
+            "UPDATE room_beds SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_bed_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, bedId]
         );
 

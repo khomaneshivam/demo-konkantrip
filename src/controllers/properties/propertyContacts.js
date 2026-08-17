@@ -51,7 +51,7 @@ const addPropertyContact = async (req, res) => {
             ]
         );
 
-        const [created] = await db.query("SELECT * FROM property_contacts WHERE contact_id = ?", [result.insertId]);
+        const [created] = await db.query("SELECT * FROM property_contacts WHERE contact_id = ? AND delete_status = 0", [result.insertId]);
         return res.status(201).json({ success: true, message: "Contact added successfully", data: created[0] });
     } catch (error) {
         console.error("Error adding property contact:", error);
@@ -101,7 +101,7 @@ const updatePropertyContact = async (req, res) => {
             return res.status(404).json({ success: false, message: "Contact not found" });
         }
 
-        const [updated] = await db.query("SELECT * FROM property_contacts WHERE contact_id = ?", [contactId]);
+        const [updated] = await db.query("SELECT * FROM property_contacts WHERE contact_id = ? AND delete_status = 0", [contactId]);
         return res.status(200).json({ success: true, message: "Contact updated", data: updated[0] });
     } catch (error) {
         console.error("Error updating property contact:", error);
@@ -113,7 +113,7 @@ const deletePropertyContact = async (req, res) => {
     try {
         const { contactId } = req.params;
         const [result] = await db.query(
-            "UPDATE property_contacts SET delete_status = 1, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE contact_id = ?",
+            "UPDATE property_contacts SET delete_status = 1, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE contact_id = ? AND delete_status = 0",
             [req.user?.p_owner_id || req.user?.admin_id || null, contactId]
         );
 
@@ -124,7 +124,7 @@ const deletePropertyContact = async (req, res) => {
         return res.status(200).json({ success: true, message: "Contact deleted" });
     } catch (error) {
         console.error("Error deleting property contact:", error);
-        return res.status(500).json({ success: false, message: "Failed to delete contact" });
+        return res.status(500).json({ success: false, message: error.sqlMessage || "Failed to delete contact" });
     }
 };
 

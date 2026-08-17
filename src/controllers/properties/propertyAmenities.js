@@ -8,7 +8,7 @@ const getPropertyAmenities = async (req, res) => {
              FROM property_amenities pa
              INNER JOIN amenities a ON a.amenity_id = pa.amenity_id
              LEFT JOIN amenity_categories c ON c.amenity_category_id = a.amenity_category_id
-             WHERE pa.property_id = ?
+             WHERE pa.property_id = ? AND pa.is_available = TRUE AND a.status = TRUE AND (c.status IS NULL OR c.status = TRUE)
              ORDER BY c.display_order ASC, a.display_order ASC`,
             [propertyId]
         );
@@ -30,29 +30,25 @@ const setPropertyAmenities = async (req, res) => {
 
         const userId = req.user?.p_owner_id || req.user?.admin_id || null;
 
-        // Replace property amenities
-        await db.query("DELETE FROM property_amenities WHERE property_id = ?", [propertyId]);
+        // Soft-deactivate existing amenities for this property
+        await db.query("UPDATE property_amenities SET is_available = FALSE WHERE property_id = ?", [propertyId]);
 
         if (amenities.length > 0) {
-            const values = amenities.map(a => [
-                propertyId,
-                a.amenity_id,
-                a.is_available !== false,
-                a.remarks || null,
-                userId
-            ]);
-
-            await db.query(
-                "INSERT INTO property_amenities (property_id, amenity_id, is_available, remarks, created_by) VALUES ?",
-                [values]
-            );
+            for (const a of amenities) {
+                await db.query(
+                    `INSERT INTO property_amenities (property_id, amenity_id, is_available, remarks, created_by)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON DUPLICATE KEY UPDATE is_available = VALUES(is_available), remarks = VALUES(remarks)`,
+                    [propertyId, a.amenity_id, a.is_available !== false, a.remarks || null, userId]
+                );
+            }
         }
 
         const [rows] = await db.query(
             `SELECT pa.*, a.amenity_name, a.amenity_icon
              FROM property_amenities pa
              INNER JOIN amenities a ON a.amenity_id = pa.amenity_id
-             WHERE pa.property_id = ?`,
+             WHERE pa.property_id = ? AND pa.is_available = TRUE AND a.status = TRUE`,
             [propertyId]
         );
 
@@ -67,7 +63,7 @@ const deletePropertyAmenity = async (req, res) => {
     try {
         const { propertyId, amenityId } = req.params;
         const [result] = await db.query(
-            "DELETE FROM property_amenities WHERE property_id = ? AND amenity_id = ?",
+            "UPDATE property_amenities SET is_available = FALSE WHERE property_id = ? AND amenity_id = ? AND is_available = TRUE",
             [propertyId, amenityId]
         );
 

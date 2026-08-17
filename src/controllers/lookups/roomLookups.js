@@ -1,6 +1,8 @@
 const db = require("../../config/db");
 
 const createLookupController = (tableName, primaryKey, options = {}) => {
+    const hasActive = options.hasActiveField !== false;
+
     return {
         getAll: async (req, res) => {
             try {
@@ -8,8 +10,9 @@ const createLookupController = (tableName, primaryKey, options = {}) => {
                 const conditions = [];
                 const params = [];
 
-                if (options.hasActiveField !== false) {
-                    if (req.query.active_only === "true") {
+                if (hasActive) {
+                    const includeInactive = req.query.include_inactive === "true" || req.query.all === "true";
+                    if (!includeInactive) {
                         conditions.push("is_active = TRUE");
                     }
                 }
@@ -33,13 +36,14 @@ const createLookupController = (tableName, primaryKey, options = {}) => {
         getById: async (req, res) => {
             try {
                 const id = req.params.id;
-                const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [id]);
+                const activeClause = hasActive ? " AND is_active = TRUE" : "";
+                const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [id]);
                 if (rows.length === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }
                 return res.status(200).json({ success: true, data: rows[0] });
             } catch (error) {
-                console.error(`Error fetching ${tableName}:`, error);
+                console.error(`Error fetching ${tableName} item:`, error);
                 return res.status(500).json({ success: false, message: `Failed to fetch ${tableName}` });
             }
         },
@@ -55,7 +59,8 @@ const createLookupController = (tableName, primaryKey, options = {}) => {
                 const query = `INSERT INTO ${tableName} (${fields.join(", ")}) VALUES (${placeholders})`;
                 const [result] = await db.query(query, values);
 
-                const [created] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [result.insertId]);
+                const activeClause = hasActive ? " AND is_active = TRUE" : "";
+                const [created] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [result.insertId]);
                 return res.status(201).json({ success: true, message: "Created successfully", data: created[0] });
             } catch (error) {
                 console.error(`Error creating ${tableName}:`, error);
@@ -76,13 +81,14 @@ const createLookupController = (tableName, primaryKey, options = {}) => {
 
                 const setClauses = fields.map(f => `${f} = ?`).join(", ");
                 const values = [...Object.values(body), id];
+                const activeClause = hasActive ? " AND is_active = TRUE" : "";
 
-                const [result] = await db.query(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?`, values);
+                const [result] = await db.query(`UPDATE ${tableName} SET ${setClauses} WHERE ${primaryKey} = ?${activeClause}`, values);
                 if (result.affectedRows === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }
 
-                const [updated] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ? LIMIT 1`, [id]);
+                const [updated] = await db.query(`SELECT * FROM ${tableName} WHERE ${primaryKey} = ?${activeClause} LIMIT 1`, [id]);
                 return res.status(200).json({ success: true, message: "Updated successfully", data: updated[0] });
             } catch (error) {
                 console.error(`Error updating ${tableName}:`, error);
@@ -93,7 +99,13 @@ const createLookupController = (tableName, primaryKey, options = {}) => {
         delete: async (req, res) => {
             try {
                 const id = req.params.id;
-                const [result] = await db.query(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`, [id]);
+                let result;
+                if (hasActive) {
+                    [result] = await db.query(`UPDATE ${tableName} SET is_active = FALSE WHERE ${primaryKey} = ? AND is_active = TRUE`, [id]);
+                } else {
+                    [result] = await db.query(`DELETE FROM ${tableName} WHERE ${primaryKey} = ?`, [id]);
+                }
+
                 if (result.affectedRows === 0) {
                     return res.status(404).json({ success: false, message: `${tableName} item not found` });
                 }

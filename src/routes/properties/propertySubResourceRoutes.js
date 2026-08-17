@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router({ mergeParams: true });
 const authMiddleware = require("../../middlewares/authMiddleware");
 const { requireOwnerOrAdmin, requirePropertyOwnership, requireAdmin } = require("../../middlewares/roleMiddleware");
-const { uploadDocument } = require("../../middlewares/uploadMiddleware");
+const { uploadDocument, uploadPropertyImage } = require("../../middlewares/uploadMiddleware");
 
 // Controllers
 const { getPropertyContacts, addPropertyContact, updatePropertyContact, deletePropertyContact } = require("../../controllers/properties/propertyContacts");
@@ -18,64 +18,64 @@ const { getPropertyDocuments, uploadPropertyDocument, verifyPropertyDocument, de
 const { getPropertyLanguages, addPropertyLanguage, deletePropertyLanguage } = require("../../controllers/properties/propertyLanguages");
 
 // Contacts
-router.get("/:propertyId/contacts", getPropertyContacts);
-router.post("/:propertyId/contacts", authMiddleware, requirePropertyOwnership, addPropertyContact);
-router.put("/:propertyId/contacts/:contactId", authMiddleware, requirePropertyOwnership, updatePropertyContact);
-router.delete("/:propertyId/contacts/:contactId", authMiddleware, requirePropertyOwnership, deletePropertyContact);
+router.get("/contacts/:propertyId", getPropertyContacts);
+router.post("/contacts/:propertyId", authMiddleware, requirePropertyOwnership, addPropertyContact);
+router.put("/contacts/:propertyId/:contactId", authMiddleware, requirePropertyOwnership, updatePropertyContact);
+router.delete("/contacts/:propertyId/:contactId", authMiddleware, requirePropertyOwnership, deletePropertyContact);
 
 // Images
-router.get("/:propertyId/images", getPropertyImages);
-router.post("/:propertyId/images", authMiddleware, requirePropertyOwnership, addPropertyImage);
-router.put("/:propertyId/images/:imageId", authMiddleware, requirePropertyOwnership, updatePropertyImage);
-router.delete("/:propertyId/images/:imageId", authMiddleware, requirePropertyOwnership, deletePropertyImage);
+router.get("/images/:propertyId", getPropertyImages);
+router.post("/images/:propertyId", authMiddleware, requirePropertyOwnership, uploadPropertyImage.single("file"), addPropertyImage);
+router.put("/images/:propertyId/:imageId", authMiddleware, requirePropertyOwnership, updatePropertyImage);
+router.delete("/images/:propertyId/:imageId", authMiddleware, requirePropertyOwnership, deletePropertyImage);
 
 // Amenities
-router.get("/:propertyId/amenities", getPropertyAmenities);
-router.post("/:propertyId/amenities", authMiddleware, requirePropertyOwnership, setPropertyAmenities);
-router.delete("/:propertyId/amenities/:amenityId", authMiddleware, requirePropertyOwnership, deletePropertyAmenity);
+router.get("/amenities/:propertyId", getPropertyAmenities);
+router.post("/amenities/:propertyId", authMiddleware, requirePropertyOwnership, setPropertyAmenities);
+router.delete("/amenities/:propertyId/:amenityId", authMiddleware, requirePropertyOwnership, deletePropertyAmenity);
 
 // Highlights
-router.get("/:propertyId/highlights", getPropertyHighlights);
-router.post("/:propertyId/highlights", authMiddleware, requirePropertyOwnership, addPropertyHighlight);
-router.put("/:propertyId/highlights/:highlightId", authMiddleware, requirePropertyOwnership, updatePropertyHighlight);
-router.delete("/:propertyId/highlights/:highlightId", authMiddleware, requirePropertyOwnership, deletePropertyHighlight);
+router.get("/highlights/:propertyId", getPropertyHighlights);
+router.post("/highlights/:propertyId", authMiddleware, requirePropertyOwnership, addPropertyHighlight);
+router.put("/highlights/:propertyId/:highlightId", authMiddleware, requirePropertyOwnership, updatePropertyHighlight);
+router.delete("/highlights/:propertyId/:highlightId", authMiddleware, requirePropertyOwnership, deletePropertyHighlight);
 
 // Tags
-router.get("/:propertyId/tags", getPropertyTags);
-router.post("/:propertyId/tags", authMiddleware, requirePropertyOwnership, setPropertyTags);
-router.delete("/:propertyId/tags/:tagId", authMiddleware, requirePropertyOwnership, removePropertyTag);
+router.get("/tags/:propertyId", getPropertyTags);
+router.post("/tags/:propertyId", authMiddleware, requirePropertyOwnership, setPropertyTags);
+router.delete("/tags/:propertyId/:tagId", authMiddleware, requirePropertyOwnership, removePropertyTag);
 
 // Policies
-router.get("/:propertyId/policies", getPropertyPolicies);
-router.post("/:propertyId/policies", authMiddleware, requirePropertyOwnership, upsertPropertyPolicies);
-router.put("/:propertyId/policies", authMiddleware, requirePropertyOwnership, upsertPropertyPolicies);
+router.get("/policies/:propertyId", getPropertyPolicies);
+router.post("/policies/:propertyId", authMiddleware, requirePropertyOwnership, upsertPropertyPolicies);
+router.put("/policies/:propertyId", authMiddleware, requirePropertyOwnership, upsertPropertyPolicies);
 
 // House Rules
-router.get("/:propertyId/house-rules", getPropertyHouseRules);
-router.post("/:propertyId/house-rules", authMiddleware, requirePropertyOwnership, addPropertyHouseRule);
-router.put("/:propertyId/house-rules/:ruleId", authMiddleware, requirePropertyOwnership, updatePropertyHouseRule);
-router.delete("/:propertyId/house-rules/:ruleId", authMiddleware, requirePropertyOwnership, deletePropertyHouseRule);
+router.get("/house-rules/:propertyId", getPropertyHouseRules);
+router.post("/house-rules/:propertyId", authMiddleware, requirePropertyOwnership, addPropertyHouseRule);
+router.put("/house-rules/:propertyId/:ruleId", authMiddleware, requirePropertyOwnership, updatePropertyHouseRule);
+router.delete("/house-rules/:propertyId/:ruleId", authMiddleware, requirePropertyOwnership, deletePropertyHouseRule);
 
 // Nearby Places
-router.get("/:propertyId/nearby-places", getPropertyNearbyPlaces);
-router.post("/:propertyId/nearby-places", authMiddleware, requirePropertyOwnership, addPropertyNearbyPlace);
-router.put("/:propertyId/nearby-places/:placeId", authMiddleware, requirePropertyOwnership, updatePropertyNearbyPlace);
-router.delete("/:propertyId/nearby-places/:placeId", authMiddleware, requirePropertyOwnership, deletePropertyNearbyPlace);
+router.get("/nearby-places/:propertyId", getPropertyNearbyPlaces);
+router.post("/nearby-places/:propertyId", authMiddleware, requirePropertyOwnership, addPropertyNearbyPlace);
+router.put("/nearby-places/:propertyId/:placeId", authMiddleware, requirePropertyOwnership, updatePropertyNearbyPlace);
+router.delete("/nearby-places/:propertyId/:placeId", authMiddleware, requirePropertyOwnership, deletePropertyNearbyPlace);
 
 // Statistics
-router.get("/:propertyId/statistics", getPropertyStatistics);
-router.post("/:propertyId/statistics/view", incrementPropertyViews);
-router.put("/:propertyId/statistics", authMiddleware, requirePropertyOwnership, updatePropertyStatistics);
+router.get("/statistics/:propertyId", getPropertyStatistics);
+router.post("/statistics/view/:propertyId", incrementPropertyViews);
+router.put("/statistics/:propertyId", authMiddleware, requirePropertyOwnership, updatePropertyStatistics);
 
 // Documents
-router.get("/:propertyId/documents", authMiddleware, requirePropertyOwnership, getPropertyDocuments);
-router.post("/:propertyId/documents", authMiddleware, requirePropertyOwnership, uploadDocument.single("file"), uploadPropertyDocument);
-router.put("/:propertyId/documents/:documentId/verify", authMiddleware, requireAdmin, verifyPropertyDocument);
-router.delete("/:propertyId/documents/:documentId", authMiddleware, requirePropertyOwnership, deletePropertyDocument);
+router.get("/documents/:propertyId", authMiddleware, requirePropertyOwnership, getPropertyDocuments);
+router.post("/documents/:propertyId", authMiddleware, requirePropertyOwnership, uploadDocument.single("file"), uploadPropertyDocument);
+router.put("/documents/verify/:propertyId/:documentId", authMiddleware, requireAdmin, verifyPropertyDocument);
+router.delete("/documents/:propertyId/:documentId", authMiddleware, requirePropertyOwnership, deletePropertyDocument);
 
 // Languages
-router.get("/:propertyId/languages", getPropertyLanguages);
-router.post("/:propertyId/languages", authMiddleware, requirePropertyOwnership, addPropertyLanguage);
-router.delete("/:propertyId/languages/:id", authMiddleware, requirePropertyOwnership, deletePropertyLanguage);
+router.get("/languages/:propertyId", getPropertyLanguages);
+router.post("/languages/:propertyId", authMiddleware, requirePropertyOwnership, addPropertyLanguage);
+router.delete("/languages/:propertyId/:id", authMiddleware, requirePropertyOwnership, deletePropertyLanguage);
 
 module.exports = router;

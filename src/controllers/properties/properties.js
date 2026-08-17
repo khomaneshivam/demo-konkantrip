@@ -47,10 +47,14 @@ const VALID_PRICE_DISPLAY_TYPES = [
 const ADMIN_ONLY_PROPERTY_FIELDS = new Set([
     "is_verified",
     "is_featured",
-    "property_status",
     "approval_remarks",
     "approved_by",
     "approved_at"
+]);
+
+const OWNER_ALLOWED_PROPERTY_STATUSES = new Set([
+    "Draft",
+    "Pending"
 ]);
 
 const PROPERTY_WRITE_FIELDS = new Set([
@@ -78,6 +82,7 @@ const DEFAULT_PROPERTY_VALUES = {
     check_in_time: "12:00:00",
     check_out_time: "10:00:00",
     currency_code: "INR",
+    starting_price: 0.00,
     price_display_type: "Per Night",
     instant_booking: true,
     property_status: "Draft",
@@ -110,6 +115,7 @@ const PROPERTY_COLUMNS = [
     "built_year",
     "renovated_year",
     "currency_code",
+    "starting_price",
     "price_display_type",
     "average_rating",
     "total_reviews",
@@ -172,6 +178,10 @@ const sanitizePropertyPayloadForRole = (payload = {}, req = {}) => {
     if (!isSuperAdmin(req)) {
         for (const field of ADMIN_ONLY_PROPERTY_FIELDS) {
             delete sanitized[field];
+        }
+
+        if (sanitized.property_status && !OWNER_ALLOWED_PROPERTY_STATUSES.has(sanitized.property_status)) {
+            delete sanitized.property_status;
         }
     }
 
@@ -258,8 +268,8 @@ const ensureUniquePropertySlug = async (slug, excludeId = null) => {
     while (true) {
         const [rows] = await db.query(
             excludeId
-                ? "SELECT property_id FROM properties WHERE property_slug = ? AND property_id != ? LIMIT 1"
-                : "SELECT property_id FROM properties WHERE property_slug = ? LIMIT 1",
+                ? "SELECT property_id FROM properties WHERE property_slug = ? AND property_id != ? AND delete_status = FALSE LIMIT 1"
+                : "SELECT property_id FROM properties WHERE property_slug = ? AND delete_status = FALSE LIMIT 1",
             excludeId ? [candidate, excludeId] : [candidate]
         );
 
@@ -438,7 +448,7 @@ const createProperty = async (req, res) => {
         );
 
         const [rows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? LIMIT 1",
+            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
             [result.insertId]
         );
 
@@ -518,12 +528,12 @@ const updateProperty = async (req, res) => {
         const assignments = updateColumns.map((column) => `${column} = ?`).join(", ");
 
         await db.query(
-            `UPDATE properties SET ${assignments} WHERE property_id = ?`,
+            `UPDATE properties SET ${assignments} WHERE property_id = ? AND delete_status = FALSE`,
             [...values, id]
         );
 
         const [updatedRows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? LIMIT 1",
+            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
             [id]
         );
 
@@ -565,7 +575,7 @@ const deleteProperty = async (req, res) => {
         }
 
         await db.query(
-            "UPDATE properties SET delete_status = TRUE, deleted_at = NOW(), property_status = 'Inactive', updated_by = ? WHERE property_id = ?",
+            "UPDATE properties SET delete_status = TRUE, deleted_at = NOW(), property_status = 'Inactive', updated_by = ? WHERE property_id = ? AND delete_status = FALSE",
             [authenticatedOwnerId || req.user?.admin_id || rows[0].created_by || rows[0].p_owner_id, id]
         );
 

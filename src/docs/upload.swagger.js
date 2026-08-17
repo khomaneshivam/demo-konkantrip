@@ -28,7 +28,7 @@ module.exports = {
                                     file: {
                                         type: 'string',
                                         format: 'binary',
-                                        description: 'File to upload (JPG, PNG, WEBP, GIF, AVIF, PDF max 10MB)'
+                                        description: 'File to upload (PDF, JPG, PNG, WEBP, DOCX, etc.)'
                                     }
                                 },
                                 required: ['file']
@@ -57,7 +57,7 @@ module.exports = {
                                                 file_size: { type: 'integer', example: 1048576 },
                                                 file_extension: { type: 'string', example: '.jpg' },
                                                 category: { type: 'string', example: 'properties' },
-                                                storage_provider: { type: 'string', example: 'Local_Disk' }
+                                                storage_provider: { type: 'string', example: 'LOCAL' }
                                             }
                                         }
                                     }
@@ -108,7 +108,37 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/property/{propertyId}/image': {
+        '/api/v1/upload/document': {
+            post: {
+                tags: ['File Uploads'],
+                summary: 'Upload a document directly to local storage',
+                description: 'Uploads a document (PDF, DOC, DOCX, XLS, XLSX, TXT, CSV, JPG, PNG) into the local /uploads/documents directory and returns file metadata.',
+                security: [{ BearerAuth: [] }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        'multipart/form-data': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    file: {
+                                        type: 'string',
+                                        format: 'binary',
+                                        description: 'Document file (Max 25MB)'
+                                    }
+                                },
+                                required: ['file']
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: 'Document uploaded to local storage successfully' },
+                    400: { description: 'Missing file or invalid file format' }
+                }
+            }
+        },
+        '/api/v1/upload/property/image/{propertyId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload property image and save record to property_images',
@@ -147,7 +177,7 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/room/{roomId}/image': {
+        '/api/v1/upload/room/image/{roomId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload room image and save record to room_images',
@@ -185,7 +215,7 @@ module.exports = {
                 }
             }
         },
-        '/api/v1/upload/property/{propertyId}/document': {
+        '/api/v1/upload/property/document/{propertyId}': {
             post: {
                 tags: ['File Uploads'],
                 summary: 'Directly upload property verification document and save to property_documents',
