@@ -47,14 +47,10 @@ const VALID_PRICE_DISPLAY_TYPES = [
 const ADMIN_ONLY_PROPERTY_FIELDS = new Set([
     "is_verified",
     "is_featured",
+    "property_status",
     "approval_remarks",
     "approved_by",
     "approved_at"
-]);
-
-const OWNER_ALLOWED_PROPERTY_STATUSES = new Set([
-    "Draft",
-    "Pending"
 ]);
 
 const PROPERTY_WRITE_FIELDS = new Set([
@@ -82,7 +78,6 @@ const DEFAULT_PROPERTY_VALUES = {
     check_in_time: "12:00:00",
     check_out_time: "10:00:00",
     currency_code: "INR",
-    starting_price: 0.00,
     price_display_type: "Per Night",
     instant_booking: true,
     property_status: "Draft",
@@ -115,7 +110,6 @@ const PROPERTY_COLUMNS = [
     "built_year",
     "renovated_year",
     "currency_code",
-    "starting_price",
     "price_display_type",
     "average_rating",
     "total_reviews",
@@ -178,10 +172,6 @@ const sanitizePropertyPayloadForRole = (payload = {}, req = {}) => {
     if (!isSuperAdmin(req)) {
         for (const field of ADMIN_ONLY_PROPERTY_FIELDS) {
             delete sanitized[field];
-        }
-
-        if (sanitized.property_status && !OWNER_ALLOWED_PROPERTY_STATUSES.has(sanitized.property_status)) {
-            delete sanitized.property_status;
         }
     }
 
@@ -302,8 +292,13 @@ const getProperties = async (req, res) => {
         const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
         const offset = (page - 1) * limit;
         const search = (req.query.search || "").trim();
-        const ownerId = req.query.owner_id ? Number(req.query.owner_id) : null;
-        const status = req.query.status ? req.query.status.trim() : null;
+        const ownerId = req.query.owner_id ? Number(req.query.owner_id) : (req.params.owner_id ? Number(req.params.owner_id) : null);
+        const status = req.query.status ? req.query.status.trim() : (req.params.status ? req.params.status : null);
+        console.log("----- GET PROPERTIES DEBUG -----");
+        console.log("req.query.status =", req.query.status);
+        console.log("req.params.status =", req.params.status);
+        console.log("Evaluated status =", status);
+
         const featured = req.query.featured === "true";
         const verified = req.query.verified === "true";
         const conditions = [];

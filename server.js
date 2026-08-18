@@ -118,8 +118,10 @@ app.use("/api/v1/admin", adminAuthRoutes);
 app.use("/api/v1/auth/employee", employeeAuthRoutes);
 
 // Admin Dashboard Routes (v1)
+const adminCrudRoutes = require("./src/routes/admin/adminCrudRoutes");
 const { requireAdmin } = require("./src/middlewares/roleMiddleware");
 app.use("/api/v1/admin/dashboard", authMiddleware, requireAdmin, adminDashboardRoutes);
+app.use("/api/v1/admin/crud", authMiddleware, requireAdmin, adminCrudRoutes);
 
 // CRM Employees, Roles, Sessions & Enterprise Audit Trail (v1)
 app.use("/api/v1", employeeRoutes);
@@ -187,7 +189,7 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
     const { initializeEmployeeTables } = require("./src/config/createEmployeeTables");
     const { initializePricingTables } = require("./src/config/createPricingTables");
-    
+
     initializeEmployeeTables().catch(err => {
         logger.warn("Employee tables initialization warning:", { error: err.message });
     });
