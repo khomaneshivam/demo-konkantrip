@@ -331,11 +331,31 @@ const getProperties = async (req, res) => {
         }
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-        const countQuery = `SELECT COUNT(*) AS total FROM properties ${whereClause}`;
+        const countQuery = `SELECT COUNT(*) AS total FROM properties p ${whereClause}`;
         const [countResult] = await db.query(countQuery, values);
         const total = countResult[0]?.total || 0;
 
-        const dataQuery = `SELECT * FROM properties ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+        const dataQuery = `
+            SELECT p.*,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url
+            FROM properties p
+            ${whereClause}
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
         const [rows] = await db.query(dataQuery, [...values, limit, offset]);
 
         return res.status(200).json({
@@ -363,7 +383,24 @@ const getPropertyById = async (req, res) => {
         const { id } = req.params;
 
         const [rows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
+            `SELECT p.*,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url
+             FROM properties p
+             WHERE p.property_id = ? AND p.delete_status = FALSE
+             LIMIT 1`,
             [id]
         );
 

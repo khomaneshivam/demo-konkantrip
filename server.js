@@ -62,7 +62,8 @@ app.use(requestIdMiddleware);
 
 // Global Middlewares
 app.use(helmet({
-    contentSecurityPolicy: false // Allows Swagger UI to load scripts properly
+    contentSecurityPolicy: false, // Allows Swagger UI to load scripts properly
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors({
     origin: env.CORS_ORIGIN,
@@ -149,7 +150,15 @@ app.use("/api/v1/inventory", inventoryRoutes);
 const { ensureUploadDirectories } = require("./src/middlewares/uploadMiddleware");
 ensureUploadDirectories();
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+    "/uploads",
+    (req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        next();
+    },
+    express.static(path.join(__dirname, "uploads"))
+);
 app.use("/api/v1/upload", uploadLimiter, uploadRoutes);
 
 // User / Admin Profile Endpoint (v1 & Root)

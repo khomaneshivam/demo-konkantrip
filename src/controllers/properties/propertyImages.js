@@ -35,10 +35,8 @@ const addPropertyImage = async (req, res) => {
         const body = req.body || {};
         const file = req.file;
 
-        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
-        const protocol = req.protocol || "http";
-        const generatedUrl = file ? `${protocol}://${host}/uploads/properties/${file.filename}` : null;
-        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+        const relativePath = file ? `/uploads/properties/${file.filename}` : null;
+        const finalCdnUrl = body.cdn_url || body.url || relativePath;
 
         let parsedFilename = null;
         if (finalCdnUrl) {
