@@ -32,6 +32,10 @@ const roomRoutes = require("./src/routes/rooms/roomRoutes");
 
 // CRM & Employees Routes
 const employeeRoutes = require("./src/routes/employees/employeeRoutes");
+const employeeSessionRoutes = require("./src/routes/employees/sessionRoutes");
+const auditRoutes = require("./src/routes/audit/auditRoutes");
+const { initEnterpriseTables } = require("./src/db/initEnterpriseTables");
+initEnterpriseTables();
 
 const path = require("path");
 
@@ -117,9 +121,11 @@ app.use("/api/v1/auth/employee", employeeAuthRoutes);
 const { requireAdmin } = require("./src/middlewares/roleMiddleware");
 app.use("/api/v1/admin/dashboard", authMiddleware, requireAdmin, adminDashboardRoutes);
 
-// CRM Employees & Roles (v1)
+// CRM Employees, Roles, Sessions & Enterprise Audit Trail (v1)
 app.use("/api/v1", employeeRoutes);
 app.use("/api/v1/crm", employeeRoutes);
+app.use("/api/v1/employees/sessions", employeeSessionRoutes);
+app.use("/api/v1/audit-trail", auditRoutes);
 
 // Master Lookups & Catalogs (v1)
 app.use("/api/v1/lookups/master", masterLookupRoutes);

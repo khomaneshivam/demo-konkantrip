@@ -1,6 +1,7 @@
 const db = require("../../config/db");
 const { v4: uuidv4 } = require("uuid");
 const { isAdmin } = require("../../middlewares/roleMiddleware");
+const AuditService = require("../../services/auditService");
 
 const getRooms = async (req, res) => {
     try {
@@ -296,6 +297,19 @@ const createRoom = async (req, res) => {
         await syncPropertyStartingPrice(property_id);
 
         const [created] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [result.insertId]);
+
+        // Record Audit Trail
+        await AuditService.logAudit({
+            req,
+            property_id,
+            module: "Rooms",
+            action: "CREATE",
+            record_id: result.insertId,
+            record_name: room_name,
+            new_values: created[0],
+            description: `Created room "${room_name}" (${room_code}) with base price ₹${payload.base_price || 0}`
+        });
+
         return res.status(201).json({ success: true, message: "Room created successfully", data: created[0] });
     } catch (error) {
         console.error("Error creating room:", error);
@@ -321,6 +335,12 @@ const updateRoom = async (req, res) => {
         delete body.delete_status;
         delete body.created_by;
 
+        const [oldRoomRows] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
+        if (oldRoomRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+        const oldRoom = oldRoomRows[0];
+
         const updatePayload = {};
         for (const [key, value] of Object.entries(body)) {
             if (ROOM_COLUMNS.has(key) && key !== "property_id" && value !== undefined) {
@@ -344,6 +364,18 @@ const updateRoom = async (req, res) => {
         const [updated] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
         if (updated.length > 0) {
             await syncPropertyStartingPrice(updated[0].property_id);
+
+            // Record Audit Trail
+            await AuditService.logAudit({
+                req,
+                property_id: updated[0].property_id,
+                module: "Rooms",
+                action: "UPDATE",
+                record_id: roomId,
+                record_name: updated[0].room_name,
+                old_values: oldRoom,
+                new_values: updated[0]
+            });
         }
 
         return res.status(200).json({ success: true, message: "Room updated successfully", data: updated[0] });
@@ -356,7 +388,7 @@ const updateRoom = async (req, res) => {
 const deleteRoom = async (req, res) => {
     try {
         const roomId = req.params.id;
-        const [roomRows] = await db.query("SELECT property_id FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
+        const [roomRows] = await db.query("SELECT * FROM rooms WHERE room_id = ? AND delete_status = FALSE LIMIT 1", [roomId]);
         if (roomRows.length === 0) {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
@@ -373,6 +405,18 @@ const deleteRoom = async (req, res) => {
         // Decrement total_rooms on property & sync starting price
         await db.query("UPDATE properties SET total_rooms = GREATEST(0, total_rooms - 1) WHERE property_id = ? AND delete_status = FALSE", [roomRows[0].property_id]);
         await syncPropertyStartingPrice(roomRows[0].property_id);
+
+        // Record Audit Trail
+        await AuditService.logAudit({
+            req,
+            property_id: roomRows[0].property_id,
+            module: "Rooms",
+            action: "DELETE",
+            record_id: roomId,
+            record_name: roomRows[0].room_name,
+            old_values: roomRows[0],
+            description: `Soft deleted room "${roomRows[0].room_name}" (#${roomId})`
+        });
 
         return res.status(200).json({ success: true, message: "Room deleted successfully" });
     } catch (error) {

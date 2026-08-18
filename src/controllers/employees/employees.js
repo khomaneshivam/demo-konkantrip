@@ -74,7 +74,7 @@ const getEmployees = async (req, res) => {
             const empIds = rows.map(e => e.employee_id);
             const [propRows] = await db.query(
                 `SELECT pe.employee_id, pe.property_id, pe.is_primary, pe.status,
-                        p.property_name, p.property_code
+                        p.property_name, p.property_type, p.property_slug
                  FROM property_employees pe
                  INNER JOIN properties p ON p.property_id = pe.property_id
                  WHERE pe.employee_id IN (?) AND pe.delete_status = FALSE AND p.delete_status = FALSE`,
@@ -108,6 +108,12 @@ const getEmployees = async (req, res) => {
 const getEmployeeById = async (req, res) => {
     try {
         const { id } = req.params;
+        const employeeId = Number(id);
+
+        if (!employeeId || Number.isNaN(employeeId) || employeeId <= 0) {
+            return res.status(400).json({ success: false, message: "Valid employee ID is required" });
+        }
+
         let query = `
             SELECT e.employee_id, e.uuid, e.p_owner_id, e.role_id, e.first_name, e.last_name,
                    e.email, e.phone, e.avatar_url, e.gender, e.date_of_birth, e.joining_date,
@@ -121,7 +127,7 @@ const getEmployeeById = async (req, res) => {
             INNER JOIN property_owners po ON po.p_owner_id = e.p_owner_id
             WHERE e.employee_id = ? AND e.delete_status = FALSE
         `;
-        const params = [Number(id)];
+        const params = [employeeId];
 
         if (!isAdmin(req.user)) {
             query += " AND e.p_owner_id = ?";
@@ -147,7 +153,7 @@ const getEmployeeById = async (req, res) => {
         // Fetch assigned properties
         const [propRows] = await db.query(
             `SELECT pe.mapping_id, pe.property_id, pe.is_primary, pe.status,
-                    p.property_name, p.property_code, p.property_type
+                    p.property_name, p.property_slug, p.property_type
              FROM property_employees pe
              INNER JOIN properties p ON p.property_id = pe.property_id
              WHERE pe.employee_id = ? AND pe.delete_status = FALSE AND p.delete_status = FALSE`,

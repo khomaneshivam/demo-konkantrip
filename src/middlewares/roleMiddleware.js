@@ -230,6 +230,47 @@ const requirePropertyOwnership = async (req, res, next) => {
     }
 };
 
+/**
+ * Require Management Access
+ * Owners and Admins have unrestricted management access.
+ * Employees are granted access if they hold the specified permission code.
+ * @param {string} [permissionCode] - Optional permission code required for employees
+ */
+const requireManagementAccess = (permissionCode) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: "Authentication required" });
+        }
+
+        // Owners and Admins bypass permission checks
+        if (isAdmin(req.user) || isOwner(req.user)) {
+            return next();
+        }
+
+        // Employees must have the permission
+        if (isEmployee(req.user)) {
+            if (!permissionCode) {
+                return next();
+            }
+
+            const userPermissions = Array.isArray(req.user.permissions) ? req.user.permissions : [];
+            if (userPermissions.includes(permissionCode) || userPermissions.includes("*")) {
+                return next();
+            }
+
+            return res.status(403).json({
+                success: false,
+                message: `Forbidden. You do not have permission: '${permissionCode}'`
+            });
+        }
+
+        return res.status(403).json({
+            success: false,
+            message: "Access denied. Management credentials required."
+        });
+    };
+};
+
 module.exports = {
     isAdmin,
     isOwner,
@@ -240,5 +281,6 @@ module.exports = {
     requireEmployee,
     requireRole,
     requirePermission,
-    requirePropertyOwnership
+    requirePropertyOwnership,
+    requireManagementAccess
 };
