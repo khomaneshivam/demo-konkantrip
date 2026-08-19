@@ -1,4 +1,5 @@
 const db = require("../../config/db");
+const { syncCalendarForDateRange, recordTransaction } = require("../../services/inventorySyncService");
 
 const getStopSellRules = async (req, res) => {
     try {
@@ -69,6 +70,8 @@ const createStopSellRule = async (req, res) => {
             });
         }
 
+        const userId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
         const [result] = await db.query(
             `INSERT INTO stop_sell (
                 property_id, room_id, inventory_id, stop_sell_reference,
@@ -82,9 +85,26 @@ const createStopSellRule = async (req, res) => {
                 stop_sell_type, reason_type, reason || null, start_date, end_date,
                 start_time || null, end_time || null, affects_new_bookings, affects_modifications,
                 affects_existing_bookings, affects_all_channels, status,
-                release_automatically, remarks || null, req.user?.p_owner_id || req.user?.admin_id || null
+                release_automatically, remarks || null, userId
             ]
         );
+
+        // Auto-sync calendar for the date range so overview immediately displays stop-sell state
+        await syncCalendarForDateRange(property_id, room_id || null, start_date, end_date, userId);
+
+        // Record audit transaction
+        await recordTransaction({
+            propertyId: property_id,
+            roomId: room_id || null,
+            inventoryId: inventory_id || null,
+            transactionDate: start_date,
+            transactionType: "Stop Sell",
+            transactionDirection: "Reduction",
+            reason: `Stop-sell enforced: ${reason || reason_type} (${start_date} to ${end_date})`,
+            remarks,
+            source: "Web",
+            performedBy: userId
+        });
 
         const [created] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ?", [result.insertId]);
         return res.status(201).json({ success: true, message: "Stop sell rule created", data: created[0] });
@@ -97,6 +117,14 @@ const createStopSellRule = async (req, res) => {
 const releaseStopSellRule = async (req, res) => {
     try {
         const { id } = req.params;
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
+        const [ruleRows] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ? LIMIT 1", [id]);
+        if (ruleRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Stop sell rule not found" });
+        }
+        const rule = ruleRows[0];
+
         const [result] = await db.query(
             `UPDATE stop_sell
              SET status = 'Released',
@@ -104,12 +132,15 @@ const releaseStopSellRule = async (req, res) => {
                  released_at = NOW(),
                  updated_by = ?
              WHERE stop_sell_id = ? AND status IN ('Scheduled', 'Active')`,
-            [req.user?.p_owner_id || req.user?.admin_id || null, req.user?.p_owner_id || req.user?.admin_id || null, id]
+            [currentUserId, currentUserId, id]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: "Active stop sell rule not found" });
+            return res.status(400).json({ success: false, message: "Stop sell rule is already released or cancelled" });
         }
+
+        // Sync calendar after releasing stop-sell rule
+        await syncCalendarForDateRange(rule.property_id, rule.room_id || null, rule.start_date, rule.end_date, currentUserId);
 
         const [updated] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ?", [id]);
         return res.status(200).json({ success: true, message: "Stop sell rule released", data: updated[0] });
@@ -122,6 +153,14 @@ const releaseStopSellRule = async (req, res) => {
 const cancelStopSellRule = async (req, res) => {
     try {
         const { id } = req.params;
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
+        const [ruleRows] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ? LIMIT 1", [id]);
+        if (ruleRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Stop sell rule not found" });
+        }
+        const rule = ruleRows[0];
+
         const [result] = await db.query(
             `UPDATE stop_sell
              SET status = 'Cancelled',
@@ -129,12 +168,15 @@ const cancelStopSellRule = async (req, res) => {
                  cancelled_at = NOW(),
                  updated_by = ?
              WHERE stop_sell_id = ? AND status IN ('Scheduled', 'Active')`,
-            [req.user?.p_owner_id || req.user?.admin_id || null, req.user?.p_owner_id || req.user?.admin_id || null, id]
+            [currentUserId, currentUserId, id]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: "Active stop sell rule not found" });
+            return res.status(400).json({ success: false, message: "Stop sell rule is already released or cancelled" });
         }
+
+        // Sync calendar after cancelling stop-sell rule
+        await syncCalendarForDateRange(rule.property_id, rule.room_id || null, rule.start_date, rule.end_date, currentUserId);
 
         return res.status(200).json({ success: true, message: "Stop sell rule cancelled" });
     } catch (error) {

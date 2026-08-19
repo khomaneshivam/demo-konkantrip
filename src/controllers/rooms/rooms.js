@@ -1,6 +1,6 @@
 const db = require("../../config/db");
 const { v4: uuidv4 } = require("uuid");
-const { isAdmin } = require("../../middlewares/roleMiddleware");
+const { isAdmin, isOwner, isEmployee } = require("../../middlewares/roleMiddleware");
 const AuditService = require("../../services/auditService");
 
 const getRooms = async (req, res) => {
@@ -254,14 +254,31 @@ const createRoom = async (req, res) => {
             });
         }
 
-        // Verify property ownership
+        // Verify property ownership or employee assignment
         if (!isAdmin(req.user)) {
-            const [prop] = await db.query(
-                "SELECT p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
-                [property_id]
-            );
-            if (prop.length === 0 || Number(prop[0].p_owner_id) !== Number(req.user?.p_owner_id)) {
-                return res.status(403).json({ success: false, message: "You cannot add rooms to this property" });
+            const propId = Number(property_id);
+            if (isOwner(req.user)) {
+                const [prop] = await db.query(
+                    "SELECT p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
+                    [propId]
+                );
+                if (prop.length === 0 || Number(prop[0].p_owner_id) !== Number(req.user?.p_owner_id)) {
+                    return res.status(403).json({ success: false, message: "You cannot add rooms to this property" });
+                }
+            } else if (isEmployee(req.user)) {
+                const employeeId = Number(req.user.employee_id);
+                const assignedList = Array.isArray(req.user.assigned_properties) ? req.user.assigned_properties.map(Number) : [];
+                if (!assignedList.includes(propId)) {
+                    const [mapping] = await db.query(
+                        "SELECT mapping_id FROM property_employees WHERE property_id = ? AND employee_id = ? AND status = 'Active' AND delete_status = FALSE LIMIT 1",
+                        [propId, employeeId]
+                    );
+                    if (mapping.length === 0) {
+                        return res.status(403).json({ success: false, message: "You are not assigned to manage rooms for this property" });
+                    }
+                }
+            } else {
+                return res.status(403).json({ success: false, message: "Unauthorized to add rooms" });
             }
         }
 
@@ -277,7 +294,7 @@ const createRoom = async (req, res) => {
         const payload = {
             room_uuid: roomUuid,
             room_slug: roomSlug,
-            created_by: req.user?.p_owner_id || req.user?.admin_id || null
+            created_by: req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null
         };
 
         for (const [key, value] of Object.entries(body)) {
@@ -340,6 +357,34 @@ const updateRoom = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
         const oldRoom = oldRoomRows[0];
+        const propertyId = Number(oldRoom.property_id);
+
+        // Verify property ownership or employee assignment
+        if (!isAdmin(req.user)) {
+            if (isOwner(req.user)) {
+                const [prop] = await db.query(
+                    "SELECT p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
+                    [propertyId]
+                );
+                if (prop.length === 0 || Number(prop[0].p_owner_id) !== Number(req.user?.p_owner_id)) {
+                    return res.status(403).json({ success: false, message: "You cannot update rooms for this property" });
+                }
+            } else if (isEmployee(req.user)) {
+                const employeeId = Number(req.user.employee_id);
+                const assignedList = Array.isArray(req.user.assigned_properties) ? req.user.assigned_properties.map(Number) : [];
+                if (!assignedList.includes(propertyId)) {
+                    const [mapping] = await db.query(
+                        "SELECT mapping_id FROM property_employees WHERE property_id = ? AND employee_id = ? AND status = 'Active' AND delete_status = FALSE LIMIT 1",
+                        [propertyId, employeeId]
+                    );
+                    if (mapping.length === 0) {
+                        return res.status(403).json({ success: false, message: "You are not assigned to manage rooms for this property" });
+                    }
+                }
+            } else {
+                return res.status(403).json({ success: false, message: "Unauthorized to update rooms" });
+            }
+        }
 
         const updatePayload = {};
         for (const [key, value] of Object.entries(body)) {
@@ -354,7 +399,8 @@ const updateRoom = async (req, res) => {
         }
 
         const setClauses = fields.map(f => `${f} = ?`).join(", ") + ", updated_by = ?";
-        const values = [...Object.values(updatePayload), req.user?.p_owner_id || req.user?.admin_id || null, roomId];
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+        const values = [...Object.values(updatePayload), currentUserId, roomId];
 
         const [result] = await db.query(`UPDATE rooms SET ${setClauses} WHERE room_id = ? AND delete_status = FALSE`, values);
         if (result.affectedRows === 0) {
@@ -393,9 +439,39 @@ const deleteRoom = async (req, res) => {
             return res.status(404).json({ success: false, message: "Room not found" });
         }
 
+        const propertyId = Number(roomRows[0].property_id);
+
+        // Verify property ownership or employee assignment
+        if (!isAdmin(req.user)) {
+            if (isOwner(req.user)) {
+                const [prop] = await db.query(
+                    "SELECT p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
+                    [propertyId]
+                );
+                if (prop.length === 0 || Number(prop[0].p_owner_id) !== Number(req.user?.p_owner_id)) {
+                    return res.status(403).json({ success: false, message: "You cannot delete rooms for this property" });
+                }
+            } else if (isEmployee(req.user)) {
+                const employeeId = Number(req.user.employee_id);
+                const assignedList = Array.isArray(req.user.assigned_properties) ? req.user.assigned_properties.map(Number) : [];
+                if (!assignedList.includes(propertyId)) {
+                    const [mapping] = await db.query(
+                        "SELECT mapping_id FROM property_employees WHERE property_id = ? AND employee_id = ? AND status = 'Active' AND delete_status = FALSE LIMIT 1",
+                        [propertyId, employeeId]
+                    );
+                    if (mapping.length === 0) {
+                        return res.status(403).json({ success: false, message: "You are not assigned to manage rooms for this property" });
+                    }
+                }
+            } else {
+                return res.status(403).json({ success: false, message: "Unauthorized to delete rooms" });
+            }
+        }
+
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
         const [result] = await db.query(
             "UPDATE rooms SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND delete_status = FALSE",
-            [req.user?.p_owner_id || req.user?.admin_id || null, roomId]
+            [currentUserId, roomId]
         );
 
         if (result.affectedRows === 0) {

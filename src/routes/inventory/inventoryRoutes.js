@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../../middlewares/authMiddleware");
-const { requireOwnerOrAdmin } = require("../../middlewares/roleMiddleware");
+const { requireManagementAccess } = require("../../middlewares/roleMiddleware");
 
 // Controllers
 const {
@@ -38,27 +38,27 @@ const {
 // 1. Room Inventory Setup
 router.get("/rooms", getRoomInventory);
 router.get("/rooms/:id", getRoomInventoryById);
-router.post("/rooms", authMiddleware, requireOwnerOrAdmin, upsertRoomInventory);
-router.delete("/rooms/:id", authMiddleware, requireOwnerOrAdmin, deleteRoomInventory);
+router.post("/rooms", authMiddleware, requireManagementAccess("inventory:update"), upsertRoomInventory);
+router.delete("/rooms/:id", authMiddleware, requireManagementAccess("inventory:update"), deleteRoomInventory);
 
 // 2. Inventory Calendar
 router.get("/calendar", getInventoryCalendar);
-router.post("/calendar", authMiddleware, requireOwnerOrAdmin, updateInventoryCalendarDay);
+router.post("/calendar", authMiddleware, requireManagementAccess("inventory:update"), updateInventoryCalendarDay);
 
 // 3. Transactions / Audit Trail
-router.get("/transactions", authMiddleware, requireOwnerOrAdmin, getInventoryTransactions);
-router.post("/transactions", authMiddleware, requireOwnerOrAdmin, createInventoryTransaction);
+router.get("/transactions", authMiddleware, requireManagementAccess("inventory:read"), getInventoryTransactions);
+router.post("/transactions", authMiddleware, requireManagementAccess("inventory:update"), createInventoryTransaction);
 
 // 4. Room Blocks
 router.get("/blocks", getRoomBlocks);
-router.post("/blocks", authMiddleware, requireOwnerOrAdmin, createRoomBlock);
-router.put("/blocks/release/:blockId", authMiddleware, requireOwnerOrAdmin, releaseRoomBlock);
-router.put("/blocks/cancel/:blockId", authMiddleware, requireOwnerOrAdmin, cancelRoomBlock);
+router.post("/blocks", authMiddleware, requireManagementAccess("inventory:manage_blocks"), createRoomBlock);
+router.put("/blocks/release/:blockId", authMiddleware, requireManagementAccess("inventory:manage_blocks"), releaseRoomBlock);
+router.put("/blocks/cancel/:blockId", authMiddleware, requireManagementAccess("inventory:manage_blocks"), cancelRoomBlock);
 
 // 5. Stop Sell Restrictions
 router.get("/stop-sell", getStopSellRules);
-router.post("/stop-sell", authMiddleware, requireOwnerOrAdmin, createStopSellRule);
-router.put("/stop-sell/release/:id", authMiddleware, requireOwnerOrAdmin, releaseStopSellRule);
-router.put("/stop-sell/cancel/:id", authMiddleware, requireOwnerOrAdmin, cancelStopSellRule);
+router.post("/stop-sell", authMiddleware, requireManagementAccess("inventory:manage_stopsell"), createStopSellRule);
+router.put("/stop-sell/release/:id", authMiddleware, requireManagementAccess("inventory:manage_stopsell"), releaseStopSellRule);
+router.put("/stop-sell/cancel/:id", authMiddleware, requireManagementAccess("inventory:manage_stopsell"), cancelStopSellRule);
 
 module.exports = router;
