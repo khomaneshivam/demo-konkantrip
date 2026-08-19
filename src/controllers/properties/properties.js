@@ -168,10 +168,15 @@ const isSuperAdmin = (req = {}) => {
 
 const sanitizePropertyPayloadForRole = (payload = {}, req = {}) => {
     const sanitized = { ...(payload || {}) };
+    const requestedStatus = payload.property_status;
 
     if (!isSuperAdmin(req)) {
         for (const field of ADMIN_ONLY_PROPERTY_FIELDS) {
             delete sanitized[field];
+        }
+
+        if (requestedStatus === "Pending" || requestedStatus === "Draft") {
+            sanitized.property_status = requestedStatus;
         }
     }
 
