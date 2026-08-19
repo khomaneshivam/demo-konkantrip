@@ -34,7 +34,17 @@ router.delete("/rates/:roomId/:rateId", authMiddleware, requireManagementAccess(
 
 // Room Images
 router.get("/images/:roomId", getRoomImages);
-router.post("/images/:roomId", authMiddleware, requireManagementAccess("rooms:update"), uploadRoomImage.single("file"), addRoomImage);
+router.post(
+    "/images/:roomId",
+    authMiddleware,
+    requireManagementAccess("rooms:update"),
+    uploadRoomImage.fields([
+        { name: "file", maxCount: 1 },
+        { name: "image", maxCount: 1 },
+        { name: "photo", maxCount: 1 }
+    ]),
+    addRoomImage
+);
 router.put("/images/:roomId/:imageId", authMiddleware, requireManagementAccess("rooms:update"), updateRoomImage);
 router.delete("/images/:roomId/:imageId", authMiddleware, requireManagementAccess("rooms:update"), deleteRoomImage);
 
