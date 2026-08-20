@@ -32,6 +32,10 @@ const roomRoutes = require("./src/routes/rooms/roomRoutes");
 
 // CRM & Employees Routes
 const employeeRoutes = require("./src/routes/employees/employeeRoutes");
+const employeeSessionRoutes = require("./src/routes/employees/sessionRoutes");
+const auditRoutes = require("./src/routes/audit/auditRoutes");
+const { initEnterpriseTables } = require("./src/db/initEnterpriseTables");
+initEnterpriseTables();
 
 const path = require("path");
 
@@ -58,7 +62,8 @@ app.use(requestIdMiddleware);
 
 // Global Middlewares
 app.use(helmet({
-    contentSecurityPolicy: false // Allows Swagger UI to load scripts properly
+    contentSecurityPolicy: false, // Allows Swagger UI to load scripts properly
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors({
     origin: env.CORS_ORIGIN,
@@ -114,12 +119,16 @@ app.use("/api/v1/admin", adminAuthRoutes);
 app.use("/api/v1/auth/employee", employeeAuthRoutes);
 
 // Admin Dashboard Routes (v1)
+const adminCrudRoutes = require("./src/routes/admin/adminCrudRoutes");
 const { requireAdmin } = require("./src/middlewares/roleMiddleware");
 app.use("/api/v1/admin/dashboard", authMiddleware, requireAdmin, adminDashboardRoutes);
+app.use("/api/v1/admin/crud", authMiddleware, requireAdmin, adminCrudRoutes);
 
-// CRM Employees & Roles (v1)
+// CRM Employees, Roles, Sessions & Enterprise Audit Trail (v1)
 app.use("/api/v1", employeeRoutes);
 app.use("/api/v1/crm", employeeRoutes);
+app.use("/api/v1/employees/sessions", employeeSessionRoutes);
+app.use("/api/v1/audit-trail", auditRoutes);
 
 // Master Lookups & Catalogs (v1)
 app.use("/api/v1/lookups/master", masterLookupRoutes);
@@ -141,7 +150,15 @@ app.use("/api/v1/inventory", inventoryRoutes);
 const { ensureUploadDirectories } = require("./src/middlewares/uploadMiddleware");
 ensureUploadDirectories();
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+    "/uploads",
+    (req, res, next) => {
+        res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        next();
+    },
+    express.static(path.join(__dirname, "uploads"))
+);
 app.use("/api/v1/upload", uploadLimiter, uploadRoutes);
 
 // User / Admin Profile Endpoint (v1 & Root)
@@ -181,7 +198,7 @@ app.use((err, req, res, next) => {
 if (require.main === module) {
     const { initializeEmployeeTables } = require("./src/config/createEmployeeTables");
     const { initializePricingTables } = require("./src/config/createPricingTables");
-    
+
     initializeEmployeeTables().catch(err => {
         logger.warn("Employee tables initialization warning:", { error: err.message });
     });

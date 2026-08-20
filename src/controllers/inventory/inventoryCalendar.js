@@ -1,4 +1,5 @@
 const db = require("../../config/db");
+const { ensureRoomInventory, syncCalendarForDateRange, recordTransaction } = require("../../services/inventorySyncService");
 
 const getInventoryCalendar = async (req, res) => {
     try {
@@ -8,8 +9,13 @@ const getInventoryCalendar = async (req, res) => {
             return res.status(400).json({ success: false, message: "start_date and end_date are required (YYYY-MM-DD)" });
         }
 
+        // Auto-sync date range for this property/room so any unsynced days or new rooms are populated
+        if (property_id) {
+            await syncCalendarForDateRange(property_id, room_id, start_date, end_date, req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null);
+        }
+
         let query = `
-            SELECT ic.*, r.room_name, r.room_code, p.property_name
+            SELECT ic.*, r.room_name, r.room_code, r.base_price, r.discount_price as room_discount_price, p.property_name
             FROM inventory_calendar ic
             INNER JOIN rooms r ON r.room_id = ic.room_id
             INNER JOIN properties p ON p.property_id = ic.property_id
@@ -61,18 +67,31 @@ const updateInventoryCalendarDay = async (req, res) => {
             inventory_status = "Available"
         } = req.body;
 
-        if (!inventory_id || !room_id || !property_id || !inventory_date || total_units === undefined) {
+        if (!room_id || !property_id || !inventory_date || total_units === undefined) {
             return res.status(400).json({
                 success: false,
-                message: "inventory_id, room_id, property_id, inventory_date, and total_units are required"
+                message: "room_id, property_id, inventory_date, and total_units are required"
             });
         }
+
+        const userId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
+        // Ensure room_inventory row exists
+        const invRecord = await ensureRoomInventory(room_id, property_id, userId);
+        const resolvedInventoryId = invRecord.inventory_id;
+
+        // Get previous available units for transaction audit
+        const [prevRows] = await db.query(
+            "SELECT available_units, booked_units, blocked_units FROM inventory_calendar WHERE inventory_id = ? AND inventory_date = ? LIMIT 1",
+            [resolvedInventoryId, inventory_date]
+        );
+        const prevAvailable = prevRows[0]?.available_units ?? total_units;
+        const prevBooked = prevRows[0]?.booked_units ?? 0;
+        const prevBlocked = prevRows[0]?.blocked_units ?? 0;
 
         const calculatedAvailable = available_units !== undefined
             ? available_units
             : Math.max(0, total_units - (booked_units + blocked_units + maintenance_units + stop_sell_units));
-
-        const userId = req.user?.p_owner_id || req.user?.admin_id || null;
 
         await db.query(
             `INSERT INTO inventory_calendar (
@@ -100,7 +119,7 @@ const updateInventoryCalendarDay = async (req, res) => {
                 inventory_status = VALUES(inventory_status),
                 updated_by = ?`,
             [
-                inventory_id, room_id, property_id, inventory_date,
+                resolvedInventoryId, room_id, property_id, inventory_date,
                 total_units, calculatedAvailable, booked_units, blocked_units,
                 maintenance_units, stop_sell_units,
                 daily_price !== undefined && daily_price !== null && daily_price !== "" ? Number(daily_price) : null,
@@ -112,9 +131,30 @@ const updateInventoryCalendarDay = async (req, res) => {
             ]
         );
 
+        // Record Audit Transaction
+        await recordTransaction({
+            propertyId: property_id,
+            roomId: room_id,
+            inventoryId: resolvedInventoryId,
+            transactionDate: inventory_date,
+            transactionType: "Manual Adjustment",
+            transactionDirection: calculatedAvailable >= prevAvailable ? "Increase" : "Decrease",
+            quantity: Math.abs(calculatedAvailable - prevAvailable),
+            previousAvailable: prevAvailable,
+            newAvailable: calculatedAvailable,
+            previousBooked: prevBooked,
+            newBooked: booked_units,
+            previousBlocked: prevBlocked,
+            newBlocked: blocked_units,
+            reason: `Manual calendar update (${inventory_status})`,
+            remarks: daily_price ? `Price set to ₹${daily_price}` : null,
+            source: "Web",
+            performedBy: userId
+        });
+
         const [saved] = await db.query(
             "SELECT * FROM inventory_calendar WHERE inventory_id = ? AND inventory_date = ? LIMIT 1",
-            [inventory_id, inventory_date]
+            [resolvedInventoryId, inventory_date]
         );
 
         return res.status(200).json({ success: true, message: "Calendar updated", data: saved[0] });

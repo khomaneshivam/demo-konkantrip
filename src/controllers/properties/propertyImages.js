@@ -33,12 +33,17 @@ const addPropertyImage = async (req, res) => {
     try {
         const propertyId = req.params.propertyId;
         const body = req.body || {};
-        const file = req.file;
+        const file = req.file || req.files?.file?.[0] || req.files?.image?.[0] || req.files?.photo?.[0];
 
-        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
-        const protocol = req.protocol || "http";
-        const generatedUrl = file ? `${protocol}://${host}/uploads/properties/${file.filename}` : null;
-        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+        const relativePath = file ? `/uploads/properties/${file.filename}` : null;
+        const finalCdnUrl = body.cdn_url || body.image_url || body.url || body.file_path || body.storage_path || relativePath;
+
+        if (!finalCdnUrl) {
+            return res.status(400).json({
+                success: false,
+                message: "image file or cdn_url (or url) is required"
+            });
+        }
 
         let parsedFilename = null;
         if (finalCdnUrl) {
@@ -53,8 +58,10 @@ const addPropertyImage = async (req, res) => {
         let mime = file ? file.mimetype : (body.mime_type || null);
         let size = file ? file.size : (body.file_size || null);
 
+        const resolvedTypeId = Number(body.image_type_id) || 1;
+
         const {
-            image_type_id = 1,
+            image_type_id = resolvedTypeId,
             image_title = original_name || "Property Image",
             image_alt_text,
             storage_provider = file ? "LOCAL" : "AWS_S3",
@@ -72,10 +79,6 @@ const addPropertyImage = async (req, res) => {
             is_active = true
         } = body;
 
-        if (!image_type_id || !finalCdnUrl) {
-            return res.status(400).json({ success: false, message: "image_type_id and image file/cdn_url (or url) are required" });
-        }
-
         const normalizedProvider = normalizeStorageProvider(storage_provider);
 
         // If setting this image as cover, unset other cover images for this property
@@ -92,7 +95,7 @@ const addPropertyImage = async (req, res) => {
                 is_active, uploaded_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                propertyId, image_type_id, image_title || null, image_alt_text || null,
+                propertyId, resolvedTypeId, image_title || null, image_alt_text || null,
                 normalizedProvider, storage_bucket || "uploads/properties", storage_key || null, finalCdnUrl,
                 thumbnail_url || finalCdnUrl, mime_type || null, file_extension || null, file_size || null,
                 image_width || null, image_height || null, Number(image_order) || 1, is_cover_image === "true" || is_cover_image === true,

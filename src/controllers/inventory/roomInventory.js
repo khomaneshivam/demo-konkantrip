@@ -5,7 +5,7 @@ const getRoomInventory = async (req, res) => {
         const { property_id, room_id } = req.query;
         let query = `
             SELECT ri.*, r.room_name, r.room_code, p.property_name
-            FROM inventory ri
+            FROM room_inventory ri
             INNER JOIN rooms r ON r.room_id = ri.room_id
             INNER JOIN properties p ON p.property_id = ri.property_id
             WHERE ri.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE
@@ -77,7 +77,7 @@ const upsertRoomInventory = async (req, res) => {
             });
         }
 
-        const userId = req.user?.p_owner_id || req.user?.admin_id || null;
+        const userId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
 
         const [result] = await db.query(
             `INSERT INTO room_inventory (
@@ -117,9 +117,10 @@ const upsertRoomInventory = async (req, res) => {
 const deleteRoomInventory = async (req, res) => {
     try {
         const { id } = req.params;
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
         const [result] = await db.query(
             "UPDATE room_inventory SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE inventory_id = ? AND delete_status = FALSE",
-            [req.user?.p_owner_id || req.user?.admin_id || null, id]
+            [currentUserId, id]
         );
 
         if (result.affectedRows === 0) {

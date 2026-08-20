@@ -1,4 +1,5 @@
 const db = require("../../config/db");
+const { syncCalendarForDateRange, recordTransaction } = require("../../services/inventorySyncService");
 
 const getRoomBlocks = async (req, res) => {
     try {
@@ -66,6 +67,8 @@ const createRoomBlock = async (req, res) => {
             });
         }
 
+        const userId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
         const [result] = await db.query(
             `INSERT INTO room_blocks (
                 property_id, room_id, inventory_id, block_reference,
@@ -79,9 +82,31 @@ const createRoomBlock = async (req, res) => {
                 block_type, block_reason || null, start_date, end_date,
                 blocked_units, release_automatically, status,
                 affects_inventory, affects_booking, affects_checkin,
-                remarks || null, req.user?.p_owner_id || req.user?.admin_id || null
+                remarks || null, userId
             ]
         );
+
+        // Auto-sync calendar for the date range so overview immediately reflects this block
+        if (affects_inventory) {
+            await syncCalendarForDateRange(property_id, room_id, start_date, end_date, userId);
+        }
+
+        // Record audit transaction
+        await recordTransaction({
+            propertyId: property_id,
+            roomId: room_id,
+            inventoryId: inventory_id || null,
+            transactionDate: start_date,
+            transactionType: "Blocked",
+            transactionDirection: "Reduction",
+            quantity: blocked_units,
+            previousBlocked: 0,
+            newBlocked: blocked_units,
+            reason: `Room block created: ${block_reason || block_type} (${start_date} to ${end_date})`,
+            remarks,
+            source: "Web",
+            performedBy: userId
+        });
 
         const [created] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ?", [result.insertId]);
         return res.status(201).json({ success: true, message: "Room block created", data: created[0] });
@@ -94,6 +119,14 @@ const createRoomBlock = async (req, res) => {
 const releaseRoomBlock = async (req, res) => {
     try {
         const { blockId } = req.params;
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
+        const [blockRows] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ? LIMIT 1", [blockId]);
+        if (blockRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room block not found" });
+        }
+        const block = blockRows[0];
+
         const [result] = await db.query(
             `UPDATE room_blocks
              SET status = 'Released',
@@ -101,12 +134,15 @@ const releaseRoomBlock = async (req, res) => {
                  released_at = NOW(),
                  updated_by = ?
              WHERE room_block_id = ? AND status IN ('Scheduled', 'Active')`,
-            [req.user?.p_owner_id || req.user?.admin_id || null, req.user?.p_owner_id || req.user?.admin_id || null, blockId]
+            [currentUserId, currentUserId, blockId]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: "Active or scheduled room block not found" });
+            return res.status(400).json({ success: false, message: "Block is already released or cancelled" });
         }
+
+        // Sync calendar after block release
+        await syncCalendarForDateRange(block.property_id, block.room_id, block.start_date, block.end_date, currentUserId);
 
         const [updated] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ?", [blockId]);
         return res.status(200).json({ success: true, message: "Room block released", data: updated[0] });
@@ -119,6 +155,14 @@ const releaseRoomBlock = async (req, res) => {
 const cancelRoomBlock = async (req, res) => {
     try {
         const { blockId } = req.params;
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+
+        const [blockRows] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ? LIMIT 1", [blockId]);
+        if (blockRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room block not found" });
+        }
+        const block = blockRows[0];
+
         const [result] = await db.query(
             `UPDATE room_blocks
              SET status = 'Cancelled',
@@ -126,12 +170,15 @@ const cancelRoomBlock = async (req, res) => {
                  cancelled_at = NOW(),
                  updated_by = ?
              WHERE room_block_id = ? AND status IN ('Scheduled', 'Active')`,
-            [req.user?.p_owner_id || req.user?.admin_id || null, req.user?.p_owner_id || req.user?.admin_id || null, blockId]
+            [currentUserId, currentUserId, blockId]
         );
 
         if (result.affectedRows === 0) {
-            return res.status(404).json({ success: false, message: "Active or scheduled room block not found" });
+            return res.status(400).json({ success: false, message: "Block is already released or cancelled" });
         }
+
+        // Sync calendar after block cancellation
+        await syncCalendarForDateRange(block.property_id, block.room_id, block.start_date, block.end_date, currentUserId);
 
         return res.status(200).json({ success: true, message: "Room block cancelled" });
     } catch (error) {

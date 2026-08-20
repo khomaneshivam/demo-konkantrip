@@ -47,14 +47,10 @@ const VALID_PRICE_DISPLAY_TYPES = [
 const ADMIN_ONLY_PROPERTY_FIELDS = new Set([
     "is_verified",
     "is_featured",
+    "property_status",
     "approval_remarks",
     "approved_by",
     "approved_at"
-]);
-
-const OWNER_ALLOWED_PROPERTY_STATUSES = new Set([
-    "Draft",
-    "Pending"
 ]);
 
 const PROPERTY_WRITE_FIELDS = new Set([
@@ -82,7 +78,6 @@ const DEFAULT_PROPERTY_VALUES = {
     check_in_time: "12:00:00",
     check_out_time: "10:00:00",
     currency_code: "INR",
-    starting_price: 0.00,
     price_display_type: "Per Night",
     instant_booking: true,
     property_status: "Draft",
@@ -115,7 +110,6 @@ const PROPERTY_COLUMNS = [
     "built_year",
     "renovated_year",
     "currency_code",
-    "starting_price",
     "price_display_type",
     "average_rating",
     "total_reviews",
@@ -174,14 +168,15 @@ const isSuperAdmin = (req = {}) => {
 
 const sanitizePropertyPayloadForRole = (payload = {}, req = {}) => {
     const sanitized = { ...(payload || {}) };
+    const requestedStatus = payload.property_status;
 
     if (!isSuperAdmin(req)) {
         for (const field of ADMIN_ONLY_PROPERTY_FIELDS) {
             delete sanitized[field];
         }
 
-        if (sanitized.property_status && !OWNER_ALLOWED_PROPERTY_STATUSES.has(sanitized.property_status)) {
-            delete sanitized.property_status;
+        if (requestedStatus === "Pending" || requestedStatus === "Draft") {
+            sanitized.property_status = requestedStatus;
         }
     }
 
@@ -302,8 +297,13 @@ const getProperties = async (req, res) => {
         const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
         const offset = (page - 1) * limit;
         const search = (req.query.search || "").trim();
-        const ownerId = req.query.owner_id ? Number(req.query.owner_id) : null;
-        const status = req.query.status ? req.query.status.trim() : null;
+        const ownerId = req.query.owner_id ? Number(req.query.owner_id) : (req.params.owner_id ? Number(req.params.owner_id) : null);
+        const status = req.query.status ? req.query.status.trim() : (req.params.status ? req.params.status : null);
+        console.log("----- GET PROPERTIES DEBUG -----");
+        console.log("req.query.status =", req.query.status);
+        console.log("req.params.status =", req.params.status);
+        console.log("Evaluated status =", status);
+
         const featured = req.query.featured === "true";
         const verified = req.query.verified === "true";
         const conditions = [];
@@ -336,11 +336,31 @@ const getProperties = async (req, res) => {
         }
 
         const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
-        const countQuery = `SELECT COUNT(*) AS total FROM properties ${whereClause}`;
+        const countQuery = `SELECT COUNT(*) AS total FROM properties p ${whereClause}`;
         const [countResult] = await db.query(countQuery, values);
         const total = countResult[0]?.total || 0;
 
-        const dataQuery = `SELECT * FROM properties ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+        const dataQuery = `
+            SELECT p.*,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url
+            FROM properties p
+            ${whereClause}
+            ORDER BY p.created_at DESC
+            LIMIT ? OFFSET ?
+        `;
         const [rows] = await db.query(dataQuery, [...values, limit, offset]);
 
         return res.status(200).json({
@@ -368,7 +388,24 @@ const getPropertyById = async (req, res) => {
         const { id } = req.params;
 
         const [rows] = await db.query(
-            "SELECT * FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1",
+            `SELECT p.*,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT pi.cdn_url
+                       FROM property_images pi
+                       WHERE pi.property_id = p.property_id AND pi.is_active = TRUE
+                       ORDER BY pi.is_cover_image DESC, pi.image_order ASC, pi.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url
+             FROM properties p
+             WHERE p.property_id = ? AND p.delete_status = FALSE
+             LIMIT 1`,
             [id]
         );
 

@@ -33,13 +33,21 @@ const addRoomImage = async (req, res) => {
     try {
         const roomId = req.params.roomId;
         const body = req.body || {};
-        const file = req.file;
+        const file = req.file || req.files?.file?.[0] || req.files?.image?.[0] || req.files?.photo?.[0];
 
-        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || "localhost:5000";
+        const defaultPort = process.env.PORT || 3000;
+        const host = (typeof req.get === "function" ? req.get("host") : req.headers?.host) || `localhost:${defaultPort}`;
         const protocol = req.protocol || "http";
         const generatedUrl = file ? `${protocol}://${host}/uploads/rooms/${file.filename}` : null;
         const generatedPath = file ? `/uploads/rooms/${file.filename}` : null;
-        const finalCdnUrl = body.cdn_url || body.url || generatedUrl;
+        const finalCdnUrl = body.cdn_url || body.image_url || body.url || body.storage_path || generatedPath || generatedUrl;
+
+        if (!finalCdnUrl) {
+            return res.status(400).json({
+                success: false,
+                message: "Room image file or cdn_url (or url) is required"
+            });
+        }
 
         let parsedFilename = null;
         if (finalCdnUrl) {
@@ -54,8 +62,10 @@ const addRoomImage = async (req, res) => {
         let mime_type = file ? file.mimetype : (body.mime_type || null);
         let file_size = file ? file.size : (body.file_size || null);
 
+        const resolvedTypeId = Number(body.room_image_type_id || body.image_type_id) || 1;
+
         const {
-            room_image_type_id = 1,
+            room_image_type_id = resolvedTypeId,
             image_title = original_file_name || "Room Image",
             image_description,
             image_alt_text,
@@ -78,13 +88,6 @@ const addRoomImage = async (req, res) => {
             image_tags,
             remarks
         } = body;
-
-        if (!room_image_type_id || !finalCdnUrl) {
-            return res.status(400).json({
-                success: false,
-                message: "room_image_type_id and image file/cdn_url (or url) are required"
-            });
-        }
 
         const normalizedProvider = normalizeStorageProvider(storage_provider);
 

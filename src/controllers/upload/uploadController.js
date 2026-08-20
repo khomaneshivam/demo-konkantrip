@@ -26,7 +26,8 @@ const buildFilePayload = (req, file, forcedCategory = null) => {
         category = 'general';
     }
 
-    const host = (typeof req.get === 'function' ? req.get('host') : req.headers?.host) || 'localhost:5000';
+    const defaultPort = process.env.PORT || 3000;
+    const host = (typeof req.get === 'function' ? req.get('host') : req.headers?.host) || `localhost:${defaultPort}`;
     const protocol = req.protocol || 'http';
     const baseUrl = `${protocol}://${host}`;
     const relativePath = `/uploads/${category}/${file.filename}`;

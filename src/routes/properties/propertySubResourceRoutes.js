@@ -25,7 +25,17 @@ router.delete("/contacts/:propertyId/:contactId", authMiddleware, requirePropert
 
 // Images
 router.get("/images/:propertyId", getPropertyImages);
-router.post("/images/:propertyId", authMiddleware, requirePropertyOwnership, uploadPropertyImage.single("file"), addPropertyImage);
+router.post(
+    "/images/:propertyId",
+    authMiddleware,
+    requirePropertyOwnership,
+    uploadPropertyImage.fields([
+        { name: "file", maxCount: 1 },
+        { name: "image", maxCount: 1 },
+        { name: "photo", maxCount: 1 }
+    ]),
+    addPropertyImage
+);
 router.put("/images/:propertyId/:imageId", authMiddleware, requirePropertyOwnership, updatePropertyImage);
 router.delete("/images/:propertyId/:imageId", authMiddleware, requirePropertyOwnership, deletePropertyImage);
 

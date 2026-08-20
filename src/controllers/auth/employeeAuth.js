@@ -3,6 +3,8 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const tokenCache = require("../../utils/tokenCache");
 const { getRequestMetadata } = require("../../utils/requestMetadata");
+const SessionService = require("../../services/sessionService");
+const AuditService = require("../../services/auditService");
 require("dotenv").config();
 
 const buildEmployeeTokenPayload = (employee, permissions = [], assignedProperties = []) => ({
@@ -157,7 +159,7 @@ const loginEmployee = async (req, res) => {
 
         // Fetch assigned properties
         const [propRows] = await db.query(
-            `SELECT pe.property_id, pe.is_primary, p.property_name, p.property_code
+            `SELECT pe.property_id, pe.is_primary, p.property_name, p.property_type, p.property_slug
              FROM property_employees pe
              INNER JOIN properties p ON p.property_id = pe.property_id
              WHERE pe.employee_id = ? AND pe.status = 'Active' AND pe.delete_status = FALSE AND p.delete_status = FALSE`,
@@ -180,6 +182,28 @@ const loginEmployee = async (req, res) => {
             failureReason: null,
             sessionId,
             jwtId
+        });
+
+        // Record enterprise session
+        await SessionService.createSession({
+            employee_id: employee.employee_id,
+            p_owner_id: employee.p_owner_id,
+            token,
+            req,
+            expires_at: new Date(Date.now() + maxAgeMs)
+        });
+
+        // Record to Audit Trail
+        await AuditService.logAudit({
+            req,
+            p_owner_id: employee.p_owner_id,
+            employee_id: employee.employee_id,
+            user_name: `${employee.first_name || ""} ${employee.last_name || ""}`.trim() || employee.email,
+            user_role: employee.role_name || "Staff",
+            user_type: "employee",
+            module: "Auth",
+            action: "LOGIN",
+            description: `Staff member logged in successfully (${employee.email})`
         });
 
         res.cookie("token", token, {
@@ -250,7 +274,7 @@ const getEmployeeProfile = async (req, res) => {
         // Fetch assigned properties
         const [propRows] = await db.query(
             `SELECT pe.mapping_id, pe.property_id, pe.is_primary, pe.status,
-                    p.property_name, p.property_code, p.property_type
+                    p.property_name, p.property_slug, p.property_type
              FROM property_employees pe
              INNER JOIN properties p ON p.property_id = pe.property_id
              WHERE pe.employee_id = ? AND pe.delete_status = FALSE AND p.delete_status = FALSE`,
@@ -321,6 +345,20 @@ const updateEmployeePassword = async (req, res) => {
             [hashedPassword, employeeId, employeeId]
         );
 
+        // Terminate all sessions on password reset for security
+        await SessionService.revokeAllEmployeeSessions(employeeId, employeeId);
+
+        await AuditService.logAudit({
+            req,
+            p_owner_id: rows[0].p_owner_id,
+            employee_id: employeeId,
+            user_name: `${rows[0].first_name || ""} ${rows[0].last_name || ""}`.trim() || rows[0].email,
+            user_type: "employee",
+            module: "Auth",
+            action: "UPDATE",
+            description: "Staff member updated account password (all active sessions revoked)"
+        });
+
         return res.status(200).json({
             success: true,
             message: "Password updated successfully"
@@ -336,7 +374,23 @@ const logoutEmployee = async (req, res) => {
         const token = req.token || req.headers.authorization?.split(" ")[1] || req.cookies?.token;
         if (token) {
             tokenCache.revoke(token);
+            await SessionService.revokeSessionByToken(token, req.user?.employee_id);
         }
+
+        if (req.user) {
+            await AuditService.logAudit({
+                req,
+                p_owner_id: req.user.p_owner_id,
+                employee_id: req.user.employee_id,
+                user_name: `${req.user.first_name || ""} ${req.user.last_name || ""}`.trim() || req.user.email,
+                user_role: req.user.role_name || "Staff",
+                user_type: "employee",
+                module: "Auth",
+                action: "LOGOUT",
+                description: `Staff member logged out (${req.user.email})`
+            });
+        }
+
         res.clearCookie("token");
         return res.status(200).json({
             success: true,
