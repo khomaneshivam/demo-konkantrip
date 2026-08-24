@@ -39,6 +39,8 @@ const normalizeLocationPayload = (payload = {}) => {
     return normalized;
 };
 
+const GOOGLE_MAPS_REGEX = /^(https?:\/\/)?((www|maps)\.)?(google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|goo\.gl\/maps|maps\.app\.goo\.gl)(\/.*)?$/i;
+
 const validateLocationPayload = (payload, { requireAddress = false } = {}) => {
     const errors = [];
 
@@ -48,6 +50,11 @@ const validateLocationPayload = (payload, { requireAddress = false } = {}) => {
     }
     if (payload.longitude !== undefined && (!Number.isFinite(Number(payload.longitude)) || Number(payload.longitude) < -180 || Number(payload.longitude) > 180)) {
         errors.push("longitude must be between -180 and 180");
+    }
+    if (payload.google_map_url !== undefined && payload.google_map_url !== null && payload.google_map_url !== "") {
+        if (!GOOGLE_MAPS_REGEX.test(String(payload.google_map_url).trim())) {
+            errors.push("google_map_url must be a valid Google Maps URL (e.g. https://maps.google.com/... or https://maps.app.goo.gl/...)");
+        }
     }
 
     return errors;
@@ -65,9 +72,24 @@ const findManageableProperty = async (req, propertyId) => {
 
     const property = rows[0];
     const ownerId = Number(req.user?.p_owner_id);
+    let permitted = isAdmin(req.user) || (Number.isInteger(ownerId) && ownerId === Number(property.p_owner_id));
+
+    if (!permitted && req.user?.employee_id) {
+        const assignedList = Array.isArray(req.user.assigned_properties) ? req.user.assigned_properties.map(Number) : [];
+        if (assignedList.includes(Number(propertyId))) {
+            permitted = true;
+        } else {
+            const [mapping] = await db.query(
+                "SELECT mapping_id FROM property_employees WHERE property_id = ? AND employee_id = ? AND status = 'Active' AND delete_status = FALSE LIMIT 1",
+                [propertyId, Number(req.user.employee_id)]
+            );
+            permitted = mapping.length > 0;
+        }
+    }
+
     return {
         property,
-        permitted: isAdmin(req.user) || (Number.isInteger(ownerId) && ownerId === Number(property.p_owner_id))
+        permitted
     };
 };
 

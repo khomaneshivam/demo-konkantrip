@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const tokenCache = require("../utils/tokenCache");
+const SessionService = require("../services/sessionService");
 require("dotenv").config();
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
     try {
         let token = null;
 
@@ -46,6 +47,19 @@ const authMiddleware = (req, res, next) => {
 
             // Store in cache for subsequent requests
             tokenCache.set(token, user);
+        }
+
+        // If employee token, verify session hasn't been revoked
+        if (user.employee_id) {
+            const active = await SessionService.isSessionActive(token);
+            if (!active) {
+                tokenCache.revoke(token);
+                return res.status(401).json({
+                    success: false,
+                    message: "Session has been revoked or expired. Please log in again."
+                });
+            }
+            SessionService.touchSession(token);
         }
 
         req.user = user;

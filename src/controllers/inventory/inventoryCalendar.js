@@ -9,9 +9,21 @@ const getInventoryCalendar = async (req, res) => {
             return res.status(400).json({ success: false, message: "start_date and end_date are required (YYYY-MM-DD)" });
         }
 
-        // Auto-sync date range for this property/room so any unsynced days or new rooms are populated
-        if (property_id) {
-            await syncCalendarForDateRange(property_id, room_id, start_date, end_date, req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null);
+        // Auto-sync date range for this property/room so any unsynced days or updated pricing are dynamically populated
+        let targetPropertyId = property_id;
+        if (!targetPropertyId && room_id) {
+            const [rm] = await db.query("SELECT property_id FROM rooms WHERE room_id = ? LIMIT 1", [room_id]);
+            if (rm.length > 0) targetPropertyId = rm[0].property_id;
+        }
+
+        const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
+        if (targetPropertyId) {
+            await syncCalendarForDateRange(targetPropertyId, room_id, start_date, end_date, currentUserId);
+        } else if (req.user?.p_owner_id) {
+            const [ownerProps] = await db.query("SELECT property_id FROM properties WHERE p_owner_id = ? AND delete_status = FALSE", [req.user.p_owner_id]);
+            for (const op of ownerProps) {
+                await syncCalendarForDateRange(op.property_id, null, start_date, end_date, currentUserId);
+            }
         }
 
         let query = `

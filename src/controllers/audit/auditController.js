@@ -1,6 +1,15 @@
 const db = require("../../config/db");
 const { isAdmin, isOwner } = require("../../middlewares/roleMiddleware");
 
+const safeJsonParse = (val) => {
+    if (!val || typeof val !== "string") return val;
+    try {
+        return JSON.parse(val);
+    } catch {
+        return val;
+    }
+};
+
 const getAuditLogs = async (req, res) => {
     try {
         const {
@@ -86,7 +95,7 @@ const getAuditLogs = async (req, res) => {
         // Format and parse JSON fields safely
         const formatted = rows.map(r => ({
             ...r,
-            changes_diff: typeof r.changes_diff === "string" ? JSON.parse(r.changes_diff) : r.changes_diff
+            changes_diff: safeJsonParse(r.changes_diff)
         }));
 
         return res.status(200).json({
@@ -129,9 +138,9 @@ const getAuditLogById = async (req, res) => {
         }
 
         const log = rows[0];
-        log.old_values = typeof log.old_values === "string" ? JSON.parse(log.old_values) : log.old_values;
-        log.new_values = typeof log.new_values === "string" ? JSON.parse(log.new_values) : log.new_values;
-        log.changes_diff = typeof log.changes_diff === "string" ? JSON.parse(log.changes_diff) : log.changes_diff;
+        log.old_values = safeJsonParse(log.old_values);
+        log.new_values = safeJsonParse(log.new_values);
+        log.changes_diff = safeJsonParse(log.changes_diff);
 
         return res.status(200).json({
             success: true,

@@ -18,9 +18,36 @@ const getRoomAmenities = async (req, res) => {
     }
 };
 
+const { isAdmin } = require("../../middlewares/roleMiddleware");
+
 const addRoomAmenity = async (req, res) => {
     try {
         const roomId = req.params.roomId;
+
+        // Verify room access
+        const [roomRows] = await db.query(
+            `SELECT r.room_id, r.property_id, p.p_owner_id 
+             FROM rooms r 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE r.room_id = ? AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [roomId]
+        );
+
+        if (roomRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+
+        const room = roomRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(room.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(room.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to map amenities for this room" });
+            }
+        }
+
         const {
             amenity_id,
             is_available = true,
@@ -69,6 +96,31 @@ const addRoomAmenity = async (req, res) => {
 const deleteRoomAmenity = async (req, res) => {
     try {
         const { roomId, amenityId } = req.params;
+
+        // Verify room access
+        const [roomRows] = await db.query(
+            `SELECT r.room_id, r.property_id, p.p_owner_id 
+             FROM rooms r 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE r.room_id = ? AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [roomId]
+        );
+
+        if (roomRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+
+        const room = roomRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(room.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(room.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to delete amenities for this room" });
+            }
+        }
+
         const [result] = await db.query(
             "UPDATE room_amenities SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_id = ? AND amenity_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, roomId, amenityId]

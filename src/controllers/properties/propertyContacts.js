@@ -38,6 +38,31 @@ const addPropertyContact = async (req, res) => {
             return res.status(400).json({ success: false, message: "contact_type_id and contact_name are required" });
         }
 
+        // Enforce only one Manager contact per property
+        const [ctRows] = await db.query(
+            "SELECT contact_type_id, contact_type_name FROM contact_types WHERE contact_type_id = ? LIMIT 1",
+            [contact_type_id]
+        );
+        const isManagerType = ctRows[0]?.contact_type_name?.toLowerCase().includes("manager") || Number(contact_type_id) === 1;
+
+        if (isManagerType) {
+            const [existingManager] = await db.query(
+                `SELECT pc.contact_id, pc.contact_name 
+                 FROM property_contacts pc
+                 LEFT JOIN contact_types ct ON ct.contact_type_id = pc.contact_type_id
+                 WHERE pc.property_id = ? AND (LOWER(COALESCE(ct.contact_type_name, '')) LIKE '%manager%' OR pc.contact_type_id = 1)
+                   AND pc.delete_status = 0 LIMIT 1`,
+                [propertyId]
+            );
+
+            if (existingManager.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `A Manager contact (${existingManager[0].contact_name}) already exists for this property. Each property can only have one Manager contact.`
+                });
+            }
+        }
+
         const [result] = await db.query(
             `INSERT INTO property_contacts (
                 property_id, contact_type_id, contact_name, designation,
@@ -74,6 +99,33 @@ const updatePropertyContact = async (req, res) => {
             is_primary,
             status
         } = req.body;
+
+        if (contact_type_id) {
+            const [ctRows] = await db.query(
+                "SELECT contact_type_id, contact_type_name FROM contact_types WHERE contact_type_id = ? LIMIT 1",
+                [contact_type_id]
+            );
+            const isManagerType = ctRows[0]?.contact_type_name?.toLowerCase().includes("manager") || Number(contact_type_id) === 1;
+
+            if (isManagerType) {
+                const [existingManager] = await db.query(
+                    `SELECT pc.contact_id, pc.contact_name 
+                     FROM property_contacts pc
+                     LEFT JOIN contact_types ct ON ct.contact_type_id = pc.contact_type_id
+                     WHERE pc.property_id = (SELECT property_id FROM property_contacts WHERE contact_id = ? LIMIT 1)
+                       AND (LOWER(COALESCE(ct.contact_type_name, '')) LIKE '%manager%' OR pc.contact_type_id = 1)
+                       AND pc.contact_id != ? AND pc.delete_status = 0 LIMIT 1`,
+                    [contactId, contactId]
+                );
+
+                if (existingManager.length > 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Another Manager contact (${existingManager[0].contact_name}) already exists for this property. Each property can only have one Manager contact.`
+                    });
+                }
+            }
+        }
 
         const [result] = await db.query(
             `UPDATE property_contacts

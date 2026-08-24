@@ -1,3 +1,4 @@
+const db = require("../../config/db");
 const SessionService = require("../../services/sessionService");
 const AuditService = require("../../services/auditService");
 const { isAdmin, isOwner } = require("../../middlewares/roleMiddleware");
@@ -29,6 +30,26 @@ const revokeSession = async (req, res) => {
         const { sessionId } = req.params;
         const revokedBy = req.user.employee_id || req.user.p_owner_id || req.user.admin_id;
 
+        const [sessionRows] = await db.query(
+            `SELECT es.*, e.p_owner_id 
+             FROM employee_sessions es 
+             INNER JOIN employees e ON e.employee_id = es.employee_id 
+             WHERE es.session_id = ? LIMIT 1`,
+            [sessionId]
+        );
+        if (sessionRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Session not found" });
+        }
+        const session = sessionRows[0];
+
+        if (!isAdmin(req.user)) {
+            const isPropertyOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(session.p_owner_id);
+            const isSelf = req.user?.employee_id && Number(req.user.employee_id) === Number(session.employee_id);
+            if (!isPropertyOwner && !isSelf) {
+                return res.status(403).json({ success: false, message: "Unauthorized to revoke this session" });
+            }
+        }
+
         const success = await SessionService.revokeSession(sessionId, revokedBy);
         if (!success) {
             return res.status(404).json({ success: false, message: "Session not found or already revoked" });
@@ -58,6 +79,22 @@ const revokeAllEmployeeSessions = async (req, res) => {
 
         if (!employeeId) {
             return res.status(400).json({ success: false, message: "Employee ID is required" });
+        }
+
+        const [empRows] = await db.query(
+            "SELECT employee_id, p_owner_id FROM employees WHERE employee_id = ? AND delete_status = FALSE LIMIT 1",
+            [employeeId]
+        );
+        if (empRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Employee not found" });
+        }
+
+        if (!isAdmin(req.user)) {
+            const isPropertyOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(empRows[0].p_owner_id);
+            const isSelf = req.user?.employee_id && Number(req.user.employee_id) === Number(employeeId);
+            if (!isPropertyOwner && !isSelf) {
+                return res.status(403).json({ success: false, message: "Unauthorized to revoke sessions for this employee" });
+            }
         }
 
         const count = await SessionService.revokeAllEmployeeSessions(employeeId, revokedBy);

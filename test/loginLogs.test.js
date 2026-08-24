@@ -48,7 +48,7 @@ test('getPropertyOwnerLoginLogs returns rows in descending order', async () => {
     };
 
     try {
-        const req = {};
+        const req = { user: { p_owner_id: 7, role: 'owner' } };
         let responseStatusCode = 200;
         let responsePayload = null;
 

@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs").promises;
 const db = require("../../config/db");
 const { normalizeStorageProvider } = require("../../middlewares/uploadMiddleware");
+const { isAdmin } = require("../../middlewares/roleMiddleware");
 
 const cleanupUploadedFile = async (file) => {
     if (file && file.path) {
@@ -32,6 +33,33 @@ const getRoomImages = async (req, res) => {
 const addRoomImage = async (req, res) => {
     try {
         const roomId = req.params.roomId;
+        
+        // Verify room access
+        const [roomRows] = await db.query(
+            `SELECT r.room_id, r.property_id, p.p_owner_id 
+             FROM rooms r 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE r.room_id = ? AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [roomId]
+        );
+
+        if (roomRows.length === 0) {
+            await cleanupUploadedFile(req.file);
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+
+        const room = roomRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(room.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(room.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                await cleanupUploadedFile(req.file);
+                return res.status(403).json({ success: false, message: "Unauthorized to add images for this room" });
+            }
+        }
+
         const body = req.body || {};
         const file = req.file || req.files?.file?.[0] || req.files?.image?.[0] || req.files?.photo?.[0];
 
@@ -58,35 +86,32 @@ const addRoomImage = async (req, res) => {
 
         let original_file_name = file ? file.originalname : (body.original_file_name || parsedFilename || "Room Image");
         let stored_file_name = file ? file.filename : (body.stored_file_name || parsedFilename || original_file_name);
-        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (parsedFilename ? path.extname(parsedFilename).toLowerCase() : null));
-        let mime_type = file ? file.mimetype : (body.mime_type || null);
-        let file_size = file ? file.size : (body.file_size || null);
-
-        const resolvedTypeId = Number(body.room_image_type_id || body.image_type_id) || 1;
+        let file_extension = file ? path.extname(file.originalname).toLowerCase() : (body.file_extension || (parsedFilename ? path.extname(parsedFilename) : ".jpg"));
+        let mime_type = file ? file.mimetype : (body.mime_type || "image/jpeg");
+        let file_size = file ? file.size : (Number(body.file_size) || 0);
 
         const {
-            room_image_type_id = resolvedTypeId,
-            image_title = original_file_name || "Room Image",
+            room_image_type_id = 1,
+            image_title,
             image_description,
             image_alt_text,
             image_caption,
             image_width,
             image_height,
             aspect_ratio,
-            storage_provider = file ? "LOCAL" : "AWS_S3",
-            storage_bucket = "uploads/rooms",
-            storage_path = generatedPath || body.storage_path,
-            cdn_url = finalCdnUrl,
-            thumbnail_url = finalCdnUrl,
+            storage_provider = "LOCAL",
+            storage_bucket,
+            storage_path,
+            thumbnail_url,
             webp_url,
             avif_url,
             is_cover_image = false,
             is_featured = false,
             is_primary = false,
-            is_active = true,
             display_order = 1,
             image_tags,
-            remarks
+            remarks,
+            is_active = true
         } = body;
 
         const normalizedProvider = normalizeStorageProvider(storage_provider);
@@ -101,7 +126,7 @@ const addRoomImage = async (req, res) => {
                 original_file_name, stored_file_name, file_extension, mime_type, file_size,
                 image_width, image_height, aspect_ratio, storage_provider, storage_bucket, storage_path,
                 cdn_url, thumbnail_url, webp_url, avif_url, is_cover_image, is_featured, is_primary,
-                is_active, display_order, image_tags, remarks, uploaded_by
+                is_active, display_order, image_tags, remarks, created_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 roomId, room_image_type_id, image_title || null, image_description || null, image_alt_text || null, image_caption || null,
@@ -124,6 +149,32 @@ const addRoomImage = async (req, res) => {
 const updateRoomImage = async (req, res) => {
     try {
         const { imageId } = req.params;
+        
+        // Verify image and room access
+        const [imgRows] = await db.query(
+            `SELECT ri.*, r.property_id, p.p_owner_id 
+             FROM room_images ri 
+             INNER JOIN rooms r ON r.room_id = ri.room_id 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE ri.room_image_id = ? AND ri.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [imageId]
+        );
+
+        if (imgRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room image not found" });
+        }
+
+        const img = imgRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(img.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(img.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to update image for this room" });
+            }
+        }
+
         const body = { ...req.body };
         delete body.room_image_id;
         delete body.room_image_uuid;
@@ -153,6 +204,32 @@ const updateRoomImage = async (req, res) => {
 const deleteRoomImage = async (req, res) => {
     try {
         const { imageId } = req.params;
+
+        // Verify image and room access
+        const [imgRows] = await db.query(
+            `SELECT ri.*, r.property_id, p.p_owner_id 
+             FROM room_images ri 
+             INNER JOIN rooms r ON r.room_id = ri.room_id 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE ri.room_image_id = ? AND ri.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [imageId]
+        );
+
+        if (imgRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room image not found" });
+        }
+
+        const img = imgRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(img.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(img.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to delete image for this room" });
+            }
+        }
+
         const [result] = await db.query(
             "UPDATE room_images SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_image_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, imageId]

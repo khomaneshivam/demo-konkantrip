@@ -47,6 +47,14 @@ const DEFAULT_PERMISSIONS = [
     { module: "roles", action: "update", permission_code: "roles:update", description: "Update custom roles and permissions" },
     { module: "roles", action: "delete", permission_code: "roles:delete", description: "Delete custom roles" },
 
+    // Pricing Module
+    { module: "pricing", action: "read", permission_code: "pricing:read", description: "View room rates, seasonal tariffs, and bulk pricing rules" },
+    { module: "pricing", action: "update", permission_code: "pricing:update", description: "Configure base rates, seasonal price rules, and discounts" },
+
+    // Audit Trail & Governance Module
+    { module: "audit", action: "read", permission_code: "audit:read", description: "View audit trail activity logs and inspection records" },
+    { module: "audit", action: "export", permission_code: "audit:export", description: "Export enterprise audit logs to CSV" },
+
     // Financials & Reports Module
     { module: "reports", action: "read", permission_code: "reports:read", description: "View revenue, occupancy, and analytics reports" },
     { module: "financials", action: "read", permission_code: "financials:read", description: "View invoices, payments, and financial accounts" }
@@ -62,11 +70,12 @@ const DEFAULT_SYSTEM_ROLES = [
             "properties:read", "properties:update", "properties:manage",
             "rooms:read", "rooms:create", "rooms:update", "rooms:manage",
             "inventory:read", "inventory:update", "inventory:manage_blocks", "inventory:manage_stopsell",
+            "pricing:read", "pricing:update",
             "bookings:read", "bookings:create", "bookings:update", "bookings:delete",
             "housekeeping:read", "housekeeping:update",
             "maintenance:read", "maintenance:manage",
             "employees:read", "employees:create", "employees:update",
-            "roles:read", "reports:read", "financials:read"
+            "roles:read", "audit:read", "audit:export", "reports:read", "financials:read"
         ]
     },
     {

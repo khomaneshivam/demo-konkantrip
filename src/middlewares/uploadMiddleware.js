@@ -60,16 +60,16 @@ const IMAGE_MIME_TYPES = [
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
-// Filter builder with mimetype and extension fallback
+// Filter builder requiring both valid mimetype and extension
 const createFilter = (allowedMimes, allowedExts, typeLabel) => (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
+    const ext = path.extname(file.originalname || '').toLowerCase();
     const mimeValid = allowedMimes.includes(file.mimetype);
     const extValid = allowedExts.includes(ext);
 
-    if (mimeValid || extValid) {
+    if (mimeValid && extValid) {
         cb(null, true);
     } else {
-        const error = new Error(`Unsupported file type: ${file.mimetype || 'unknown'}. Allowed ${typeLabel}: ${allowedExts.map(e => e.replace('.', '').toUpperCase()).join(', ')}`);
+        const error = new Error(`Unsupported file type (${file.mimetype || 'unknown'} / ${ext || 'none'}). Allowed ${typeLabel}: ${allowedExts.map(e => e.replace('.', '').toUpperCase()).join(', ')}`);
         error.status = 400;
         cb(error, false);
     }

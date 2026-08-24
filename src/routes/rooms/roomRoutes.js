@@ -16,7 +16,14 @@ const { getRoomImages, addRoomImage, updateRoomImage, deleteRoomImage } = requir
 const { getRoomBeds, addRoomBed, updateRoomBed, deleteRoomBed } = require("../../controllers/rooms/roomBeds");
 const { getRoomAmenities, addRoomAmenity, deleteRoomAmenity } = require("../../controllers/rooms/roomAmenities");
 const { getRoomFacilities, addRoomFacility, deleteRoomFacility } = require("../../controllers/rooms/roomFacilities");
-const { getRoomRates, createRoomRate, updateRoomRate, deleteRoomRate } = require("../../controllers/rooms/roomRates");
+const { 
+    getRoomRates, 
+    createRoomRate, 
+    updateRoomRate, 
+    deleteRoomRate,
+    bulkUpdatePricing,
+    bulkCreateSeasonalRates 
+} = require("../../controllers/rooms/roomRates");
 
 // Core Room CRUD
 router.get("/", getRooms);
@@ -25,9 +32,11 @@ router.post("/", authMiddleware, requireManagementAccess("rooms:create"), create
 router.put("/:id", authMiddleware, requireManagementAccess("rooms:update"), updateRoom);
 router.delete("/:id", authMiddleware, requireManagementAccess("rooms:delete"), deleteRoom);
 
-// Room Seasonal Rates & Discount Pricing
+// Room Seasonal Rates, Bulk Updates & Discount Pricing
 router.get("/rates/all", getRoomRates);
 router.get("/rates/:roomId", getRoomRates);
+router.post("/rates/bulk-update", authMiddleware, requireManagementAccess("rooms:update"), bulkUpdatePricing);
+router.post("/rates/bulk-seasonal-rates", authMiddleware, requireManagementAccess("rooms:update"), bulkCreateSeasonalRates);
 router.post("/rates/:roomId", authMiddleware, requireManagementAccess("rooms:update"), createRoomRate);
 router.put("/rates/:roomId/:rateId", authMiddleware, requireManagementAccess("rooms:update"), updateRoomRate);
 router.delete("/rates/:roomId/:rateId", authMiddleware, requireManagementAccess("rooms:update"), deleteRoomRate);

@@ -235,7 +235,7 @@ const createEmployee = async (req, res) => {
 
         // Verify role exists and is accessible
         const [roleRows] = await db.query(
-            "SELECT role_id FROM employee_roles WHERE role_id = ? AND (p_owner_id IS NULL OR p_owner_id = ?) AND delete_status = FALSE LIMIT 1",
+            "SELECT role_id, role_name, role_slug FROM employee_roles WHERE role_id = ? AND (p_owner_id IS NULL OR p_owner_id = ?) AND delete_status = FALSE LIMIT 1",
             [role_id, ownerId]
         );
 
@@ -244,6 +244,37 @@ const createEmployee = async (req, res) => {
                 success: false,
                 message: "Selected role does not exist or is not available for this owner"
             });
+        }
+
+        const assignedProps = Array.isArray(property_ids) ? property_ids.map(Number) : [];
+
+        // Enforce: each property can only have one Property Manager assigned
+        const isPropertyManagerRole =
+            roleRows[0].role_slug === "property-manager" ||
+            roleRows[0].role_name?.toLowerCase().includes("property manager");
+
+        if (isPropertyManagerRole && assignedProps.length > 0) {
+            const [conflicts] = await db.query(
+                `SELECT pe.property_id, p.property_name, e.first_name, e.last_name, e.employee_id
+                 FROM property_employees pe
+                 INNER JOIN properties p ON p.property_id = pe.property_id
+                 INNER JOIN employees e ON e.employee_id = pe.employee_id
+                 INNER JOIN employee_roles r ON r.role_id = e.role_id
+                 WHERE pe.property_id IN (?)
+                   AND (r.role_slug = 'property-manager' OR LOWER(r.role_name) LIKE '%property manager%')
+                   AND e.delete_status = FALSE
+                   AND pe.delete_status = FALSE
+                   AND pe.status = 'Active'
+                 LIMIT 1`,
+                [assignedProps]
+            );
+
+            if (conflicts.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Property '${conflicts[0].property_name}' already has an active Property Manager (${conflicts[0].first_name} ${conflicts[0].last_name}). Each property can only have one assigned Property Manager.`
+                });
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password.toString(), 10);
@@ -385,6 +416,50 @@ const updateEmployee = async (req, res) => {
             );
             if (duplicate.length > 0) {
                 return res.status(400).json({ success: false, message: "Another active employee with this email or phone already exists" });
+            }
+        }
+
+        // Enforce: each property can only have one Property Manager assigned
+        const assignedProps = Array.isArray(property_ids) ? property_ids.map(Number) : null;
+        const targetRoleId = role_id !== undefined ? Number(role_id) : current.role_id;
+        const [roleCheck] = await db.query("SELECT role_name, role_slug FROM employee_roles WHERE role_id = ? LIMIT 1", [targetRoleId]);
+        const isPropertyManagerRole =
+            roleCheck[0]?.role_slug === "property-manager" ||
+            roleCheck[0]?.role_name?.toLowerCase().includes("property manager");
+
+        if (isPropertyManagerRole && (status === undefined || status === "Active")) {
+            let checkProps = assignedProps;
+            if (!checkProps) {
+                const [currentAssigned] = await db.query(
+                    "SELECT property_id FROM property_employees WHERE employee_id = ? AND delete_status = FALSE AND status = 'Active'",
+                    [employeeId]
+                );
+                checkProps = currentAssigned.map(p => p.property_id);
+            }
+
+            if (checkProps.length > 0) {
+                const [conflicts] = await db.query(
+                    `SELECT pe.property_id, p.property_name, e.first_name, e.last_name, e.employee_id
+                     FROM property_employees pe
+                     INNER JOIN properties p ON p.property_id = pe.property_id
+                     INNER JOIN employees e ON e.employee_id = pe.employee_id
+                     INNER JOIN employee_roles r ON r.role_id = e.role_id
+                     WHERE pe.property_id IN (?)
+                       AND (r.role_slug = 'property-manager' OR LOWER(r.role_name) LIKE '%property manager%')
+                       AND e.employee_id != ?
+                       AND e.delete_status = FALSE
+                       AND pe.delete_status = FALSE
+                       AND pe.status = 'Active'
+                     LIMIT 1`,
+                    [checkProps, employeeId]
+                );
+
+                if (conflicts.length > 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: `Property '${conflicts[0].property_name}' already has an active Property Manager (${conflicts[0].first_name} ${conflicts[0].last_name}). Each property can only have one assigned Property Manager.`
+                    });
+                }
             }
         }
 

@@ -114,16 +114,34 @@ const createStopSellRule = async (req, res) => {
     }
 };
 
+const { isAdmin } = require("../../middlewares/roleMiddleware");
+
 const releaseStopSellRule = async (req, res) => {
     try {
         const { id } = req.params;
         const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
 
-        const [ruleRows] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ? LIMIT 1", [id]);
+        const [ruleRows] = await db.query(
+            `SELECT s.*, p.p_owner_id 
+             FROM stop_sell s 
+             INNER JOIN properties p ON p.property_id = s.property_id 
+             WHERE s.stop_sell_id = ? AND s.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [id]
+        );
         if (ruleRows.length === 0) {
             return res.status(404).json({ success: false, message: "Stop sell rule not found" });
         }
         const rule = ruleRows[0];
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(rule.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(rule.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to modify stop-sell rules for this property" });
+            }
+        }
 
         const [result] = await db.query(
             `UPDATE stop_sell
@@ -155,11 +173,27 @@ const cancelStopSellRule = async (req, res) => {
         const { id } = req.params;
         const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
 
-        const [ruleRows] = await db.query("SELECT * FROM stop_sell WHERE stop_sell_id = ? LIMIT 1", [id]);
+        const [ruleRows] = await db.query(
+            `SELECT s.*, p.p_owner_id 
+             FROM stop_sell s 
+             INNER JOIN properties p ON p.property_id = s.property_id 
+             WHERE s.stop_sell_id = ? AND s.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [id]
+        );
         if (ruleRows.length === 0) {
             return res.status(404).json({ success: false, message: "Stop sell rule not found" });
         }
         const rule = ruleRows[0];
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(rule.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(rule.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to modify stop-sell rules for this property" });
+            }
+        }
 
         const [result] = await db.query(
             `UPDATE stop_sell

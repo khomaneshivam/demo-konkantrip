@@ -35,11 +35,24 @@ const insertLoginLog = async (req, data) => {
     );
 };
 
+const { isAdmin } = require("../../middlewares/roleMiddleware");
+
 const getPropertyOwnerLoginLogs = async (req, res) => {
     try {
-        const [rows] = await db.query(
-            "SELECT * FROM property_owner_login_logs ORDER BY created_at DESC, id DESC"
-        );
+        let query = "SELECT * FROM property_owner_login_logs";
+        const params = [];
+
+        if (!isAdmin(req.user)) {
+            const ownerId = req.user?.p_owner_id;
+            if (!ownerId) {
+                return res.status(403).json({ success: false, message: "Unauthorized access" });
+            }
+            query += " WHERE p_owner_id = ?";
+            params.push(ownerId);
+        }
+
+        query += " ORDER BY created_at DESC, id DESC";
+        const [rows] = await db.query(query, params);
 
         return res.status(200).json({ success: true, count: rows.length, data: rows });
     } catch (error) {

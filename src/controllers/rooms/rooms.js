@@ -21,7 +21,28 @@ const getRooms = async (req, res) => {
                    rt.room_type_name, rt.room_category,
                    rs.status_name as room_status_name, rs.is_bookable as status_bookable,
                    rv.room_view_name,
-                   p.property_name, p.p_owner_id
+                   p.property_name, p.p_owner_id,
+                   (
+                       SELECT ri.cdn_url
+                       FROM room_images ri
+                       WHERE ri.room_id = r.room_id AND ri.delete_status = FALSE AND ri.is_active = TRUE
+                       ORDER BY ri.is_cover_image DESC, ri.is_primary DESC, ri.display_order ASC, ri.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT ri.cdn_url
+                       FROM room_images ri
+                       WHERE ri.room_id = r.room_id AND ri.delete_status = FALSE AND ri.is_active = TRUE
+                       ORDER BY ri.is_cover_image DESC, ri.is_primary DESC, ri.display_order ASC, ri.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url,
+                   (
+                       SELECT ri.storage_path
+                       FROM room_images ri
+                       WHERE ri.room_id = r.room_id AND ri.delete_status = FALSE AND ri.is_active = TRUE
+                       ORDER BY ri.is_cover_image DESC, ri.is_primary DESC, ri.display_order ASC, ri.created_at ASC
+                       LIMIT 1
+                   ) AS storage_path
             FROM rooms r
             INNER JOIN properties p ON p.property_id = r.property_id
             LEFT JOIN room_types rt ON rt.room_type_id = r.room_type_id
@@ -84,7 +105,21 @@ const getRoomById = async (req, res) => {
                    rt.room_type_name, rt.room_category,
                    rs.status_name as room_status_name,
                    rv.room_view_name,
-                   p.property_name, p.p_owner_id
+                   p.property_name, p.p_owner_id,
+                   (
+                       SELECT ri.cdn_url
+                       FROM room_images ri
+                       WHERE ri.room_id = r.room_id AND ri.delete_status = FALSE AND ri.is_active = TRUE
+                       ORDER BY ri.is_cover_image DESC, ri.is_primary DESC, ri.display_order ASC, ri.created_at ASC
+                       LIMIT 1
+                   ) AS cover_image,
+                   (
+                       SELECT ri.cdn_url
+                       FROM room_images ri
+                       WHERE ri.room_id = r.room_id AND ri.delete_status = FALSE AND ri.is_active = TRUE
+                       ORDER BY ri.is_cover_image DESC, ri.is_primary DESC, ri.display_order ASC, ri.created_at ASC
+                       LIMIT 1
+                   ) AS cdn_url
             FROM rooms r
             INNER JOIN properties p ON p.property_id = r.property_id
             LEFT JOIN room_types rt ON rt.room_type_id = r.room_type_id
@@ -411,6 +446,16 @@ const updateRoom = async (req, res) => {
         if (updated.length > 0) {
             await syncPropertyStartingPrice(updated[0].property_id);
 
+            // Sync inventory calendar for this room
+            try {
+                const { syncCalendarForDateRange } = require("../../services/inventorySyncService");
+                const todayStr = new Date().toISOString().slice(0, 10);
+                const futureDate = new Date();
+                futureDate.setDate(futureDate.getDate() + 90);
+                const futureStr = futureDate.toISOString().slice(0, 10);
+                await syncCalendarForDateRange(updated[0].property_id, roomId, todayStr, futureStr, currentUserId);
+            } catch (_) {}
+
             // Record Audit Trail
             await AuditService.logAudit({
                 req,
@@ -506,5 +551,6 @@ module.exports = {
     getRoomById,
     createRoom,
     updateRoom,
-    deleteRoom
+    deleteRoom,
+    syncPropertyStartingPrice
 };

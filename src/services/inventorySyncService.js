@@ -124,13 +124,17 @@ const ensureRoomInventory = async (roomId, propertyId, userId = null) => {
  */
 const getDateRangeArray = (startDateStr, endDateStr) => {
     const dates = [];
+    if (!startDateStr || !endDateStr) return dates;
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
-    let curr = new Date(start);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return dates;
 
-    while (curr <= end) {
+    let curr = new Date(start);
+    let count = 0;
+    while (curr <= end && count < 366) {
         dates.push(curr.toISOString().slice(0, 10));
-        curr.setDate(curr.getDate() + 1);
+        curr.setUTCDate(curr.getUTCDate() + 1);
+        count++;
     }
     return dates;
 };
@@ -156,9 +160,19 @@ const syncCalendarForDateRange = async (propertyId, roomId, startDateStr, endDat
 
         const dateList = getDateRangeArray(startDateStr, endDateStr);
 
+        // Fetch active seasonal rates for the property
+        const [seasonalRates] = await db.query(
+            `SELECT * FROM room_seasonal_rates 
+             WHERE property_id = ? AND is_active = TRUE AND delete_status = FALSE
+             ORDER BY created_at DESC`,
+            [propertyId]
+        );
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
         for (const rId of roomIds) {
             const inv = await ensureRoomInventory(rId, propertyId, userId);
-            const totalUnits = Number(inv.total_units || 1);
+            const totalUnits = Number(inv?.total_units || 1);
 
             // Fetch room default base_price
             const [rInfo] = await db.query("SELECT base_price, discount_price FROM rooms WHERE room_id = ? LIMIT 1", [rId]);
@@ -192,21 +206,41 @@ const syncCalendarForDateRange = async (propertyId, roomId, startDateStr, endDat
                 const isStopSell = Number(stopSells[0]?.stop_sell_count || 0) > 0;
                 const stopSellUnits = isStopSell ? totalUnits : 0;
 
-                // 3. Get existing calendar record if any (to preserve existing bookings and custom daily pricing)
-                const [existingCal] = await db.query(
-                    "SELECT * FROM inventory_calendar WHERE inventory_id = ? AND inventory_date = ? LIMIT 1",
-                    [inv.inventory_id, dateStr]
-                );
+                // 3. Resolve active seasonal rate or standard base rate for this date
+                const dateObj = new Date(dateStr + "T00:00:00");
+                const currentDayName = dayNames[dateObj.getDay()];
 
-                const bookedUnits = Number(existingCal[0]?.booked_units || 0);
-                const dailyPrice = existingCal[0]?.daily_price !== undefined && existingCal[0]?.daily_price !== null
-                    ? Number(existingCal[0].daily_price)
+                const matchingSeasonal = seasonalRates.find(sr => {
+                    if (Number(sr.room_id) !== Number(rId)) return false;
+                    const srStart = sr.start_date ? (sr.start_date.toISOString ? sr.start_date.toISOString().slice(0, 10) : String(sr.start_date).slice(0, 10)) : "";
+                    const srEnd = sr.end_date ? (sr.end_date.toISOString ? sr.end_date.toISOString().slice(0, 10) : String(sr.end_date).slice(0, 10)) : "";
+                    if (dateStr < srStart || dateStr > srEnd) return false;
+                    if (sr.days_of_week) {
+                        const days = sr.days_of_week.split(",").map(d => d.trim().toLowerCase());
+                        if (!days.includes(currentDayName.toLowerCase()) && !days.includes(currentDayName.slice(0, 3).toLowerCase())) {
+                            return false;
+                        }
+                    }
+                    return true;
+                });
+
+                const dailyPrice = matchingSeasonal?.base_price !== undefined && matchingSeasonal?.base_price !== null
+                    ? Number(matchingSeasonal.base_price)
                     : defaultPrice;
-                const dailyDiscountPrice = existingCal[0]?.daily_discount_price !== undefined && existingCal[0]?.daily_discount_price !== null
-                    ? Number(existingCal[0].daily_discount_price)
+
+                const dailyDiscountPrice = matchingSeasonal?.discount_price !== undefined && matchingSeasonal?.discount_price !== null
+                    ? Number(matchingSeasonal.discount_price)
                     : defaultDiscountPrice;
 
-                // 4. Calculate available units and status
+                // 4. Get existing calendar record if any (to preserve booked units)
+                const invId = inv?.inventory_id || 1;
+                const [existingCal] = await db.query(
+                    "SELECT booked_units FROM inventory_calendar WHERE inventory_id = ? AND inventory_date = ? LIMIT 1",
+                    [invId, dateStr]
+                );
+                const bookedUnits = Number(existingCal[0]?.booked_units || 0);
+
+                // 5. Calculate available units and status
                 const calculatedAvailable = Math.max(0, totalUnits - (bookedUnits + blockedUnits + stopSellUnits));
                 const isAvailable = !isStopSell && calculatedAvailable > 0;
                 const isSellable = !isStopSell;
@@ -224,7 +258,7 @@ const syncCalendarForDateRange = async (propertyId, roomId, startDateStr, endDat
                     inventoryStatus = "Limited";
                 }
 
-                // 5. Upsert into inventory_calendar
+                // 6. Upsert into inventory_calendar
                 await db.query(
                     `INSERT INTO inventory_calendar (
                         inventory_id, room_id, property_id, inventory_date,
@@ -246,7 +280,7 @@ const syncCalendarForDateRange = async (propertyId, roomId, startDateStr, endDat
                         inventory_status = VALUES(inventory_status),
                         updated_by = ?`,
                     [
-                        inv.inventory_id, rId, propertyId, dateStr,
+                        invId, rId, propertyId, dateStr,
                         totalUnits, calculatedAvailable, bookedUnits, blockedUnits,
                         maintenanceUnits, stopSellUnits, dailyPrice, dailyDiscountPrice,
                         isSellable, isAvailable, inventoryStatus, userId, userId,

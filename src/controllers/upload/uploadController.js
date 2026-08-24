@@ -126,11 +126,34 @@ const uploadDocumentDirect = async (req, res) => {
     }
 };
 
+const { isAdmin } = require('../../middlewares/roleMiddleware');
+
 const uploadPropertyImageDirect = async (req, res) => {
     try {
         const { propertyId } = req.params;
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Image file is required' });
+        }
+
+        // Verify property exists and user has management access
+        const [propRows] = await db.query(
+            'SELECT property_id, p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1',
+            [propertyId]
+        );
+        if (propRows.length === 0) {
+            await cleanupUploadedFile(req.file);
+            return res.status(404).json({ success: false, message: 'Property not found' });
+        }
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(propRows[0].p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(propertyId))
+            );
+            if (!isOwner && !isEmployee) {
+                await cleanupUploadedFile(req.file);
+                return res.status(403).json({ success: false, message: 'Unauthorized to upload images for this property' });
+            }
         }
 
         const fileData = buildFilePayload(req, req.file, 'properties');
@@ -193,6 +216,32 @@ const uploadRoomImageDirect = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Room image file is required' });
         }
 
+        // Verify room exists and user is authorized
+        const [roomRows] = await db.query(
+            `SELECT r.room_id, r.property_id, p.p_owner_id 
+             FROM rooms r 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE r.room_id = ? AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [roomId]
+        );
+
+        if (roomRows.length === 0) {
+            await cleanupUploadedFile(req.file);
+            return res.status(404).json({ success: false, message: 'Room not found' });
+        }
+
+        const room = roomRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(room.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(room.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                await cleanupUploadedFile(req.file);
+                return res.status(403).json({ success: false, message: 'Unauthorized to upload images for this room' });
+            }
+        }
+
         const fileData = buildFilePayload(req, req.file, 'rooms');
         const {
             room_image_type_id = 1,
@@ -253,6 +302,27 @@ const uploadPropertyDocumentDirect = async (req, res) => {
         const { propertyId } = req.params;
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Document file is required' });
+        }
+
+        // Verify property exists and user has management access
+        const [propRows] = await db.query(
+            'SELECT property_id, p_owner_id FROM properties WHERE property_id = ? AND delete_status = FALSE LIMIT 1',
+            [propertyId]
+        );
+        if (propRows.length === 0) {
+            await cleanupUploadedFile(req.file);
+            return res.status(404).json({ success: false, message: 'Property not found' });
+        }
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(propRows[0].p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(propertyId))
+            );
+            if (!isOwner && !isEmployee) {
+                await cleanupUploadedFile(req.file);
+                return res.status(403).json({ success: false, message: 'Unauthorized to upload documents for this property' });
+            }
         }
 
         const fileData = buildFilePayload(req, req.file, 'documents');

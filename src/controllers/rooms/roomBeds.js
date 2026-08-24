@@ -1,4 +1,5 @@
 const db = require("../../config/db");
+const { isAdmin } = require("../../middlewares/roleMiddleware");
 
 const getRoomBeds = async (req, res) => {
     try {
@@ -21,6 +22,31 @@ const getRoomBeds = async (req, res) => {
 const addRoomBed = async (req, res) => {
     try {
         const roomId = req.params.roomId;
+
+        // Verify room access
+        const [roomRows] = await db.query(
+            `SELECT r.room_id, r.property_id, p.p_owner_id 
+             FROM rooms r 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE r.room_id = ? AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [roomId]
+        );
+
+        if (roomRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+
+        const room = roomRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(room.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(room.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to add beds for this room" });
+            }
+        }
+
         const {
             bed_type_id,
             quantity = 1,
@@ -60,6 +86,32 @@ const addRoomBed = async (req, res) => {
 const updateRoomBed = async (req, res) => {
     try {
         const { bedId } = req.params;
+
+        // Verify bed and room access
+        const [bedRows] = await db.query(
+            `SELECT rb.*, r.property_id, p.p_owner_id 
+             FROM room_beds rb 
+             INNER JOIN rooms r ON r.room_id = rb.room_id 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE rb.room_bed_id = ? AND rb.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [bedId]
+        );
+
+        if (bedRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room bed not found" });
+        }
+
+        const bed = bedRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(bed.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(bed.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to update bed for this room" });
+            }
+        }
+
         const body = { ...req.body };
         delete body.room_bed_id;
         delete body.room_bed_uuid;
@@ -89,6 +141,32 @@ const updateRoomBed = async (req, res) => {
 const deleteRoomBed = async (req, res) => {
     try {
         const { bedId } = req.params;
+
+        // Verify bed and room access
+        const [bedRows] = await db.query(
+            `SELECT rb.*, r.property_id, p.p_owner_id 
+             FROM room_beds rb 
+             INNER JOIN rooms r ON r.room_id = rb.room_id 
+             INNER JOIN properties p ON p.property_id = r.property_id 
+             WHERE rb.room_bed_id = ? AND rb.delete_status = FALSE AND r.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [bedId]
+        );
+
+        if (bedRows.length === 0) {
+            return res.status(404).json({ success: false, message: "Room bed not found" });
+        }
+
+        const bed = bedRows[0];
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(bed.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(bed.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to delete bed for this room" });
+            }
+        }
+
         const [result] = await db.query(
             "UPDATE room_beds SET delete_status = TRUE, deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE room_bed_id = ? AND delete_status = FALSE",
             [req.user?.p_owner_id || req.user?.admin_id || null, bedId]

@@ -116,16 +116,34 @@ const createRoomBlock = async (req, res) => {
     }
 };
 
+const { isAdmin } = require("../../middlewares/roleMiddleware");
+
 const releaseRoomBlock = async (req, res) => {
     try {
         const { blockId } = req.params;
         const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
 
-        const [blockRows] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ? LIMIT 1", [blockId]);
+        const [blockRows] = await db.query(
+            `SELECT b.*, p.p_owner_id 
+             FROM room_blocks b 
+             INNER JOIN properties p ON p.property_id = b.property_id 
+             WHERE b.room_block_id = ? AND b.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [blockId]
+        );
         if (blockRows.length === 0) {
             return res.status(404).json({ success: false, message: "Room block not found" });
         }
         const block = blockRows[0];
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(block.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(block.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to modify blocks for this property" });
+            }
+        }
 
         const [result] = await db.query(
             `UPDATE room_blocks
@@ -157,11 +175,27 @@ const cancelRoomBlock = async (req, res) => {
         const { blockId } = req.params;
         const currentUserId = req.user?.employee_id || req.user?.p_owner_id || req.user?.admin_id || null;
 
-        const [blockRows] = await db.query("SELECT * FROM room_blocks WHERE room_block_id = ? LIMIT 1", [blockId]);
+        const [blockRows] = await db.query(
+            `SELECT b.*, p.p_owner_id 
+             FROM room_blocks b 
+             INNER JOIN properties p ON p.property_id = b.property_id 
+             WHERE b.room_block_id = ? AND b.delete_status = FALSE AND p.delete_status = FALSE LIMIT 1`,
+            [blockId]
+        );
         if (blockRows.length === 0) {
             return res.status(404).json({ success: false, message: "Room block not found" });
         }
         const block = blockRows[0];
+
+        if (!isAdmin(req.user)) {
+            const isOwner = req.user?.p_owner_id && Number(req.user.p_owner_id) === Number(block.p_owner_id);
+            const isEmployee = req.user?.employee_id && (
+                Array.isArray(req.user.assigned_properties) && req.user.assigned_properties.map(Number).includes(Number(block.property_id))
+            );
+            if (!isOwner && !isEmployee) {
+                return res.status(403).json({ success: false, message: "Unauthorized to modify blocks for this property" });
+            }
+        }
 
         const [result] = await db.query(
             `UPDATE room_blocks
