@@ -35,12 +35,21 @@ const employeeRoutes = require("./src/routes/employees/employeeRoutes");
 const employeeSessionRoutes = require("./src/routes/employees/sessionRoutes");
 const auditRoutes = require("./src/routes/audit/auditRoutes");
 const { initEnterpriseTables } = require("./src/db/initEnterpriseTables");
+const { initBookingTables } = require("./src/db/initBookingTables");
 initEnterpriseTables();
+initBookingTables();
 
 const path = require("path");
 
 // Inventory Routes
 const inventoryRoutes = require("./src/routes/inventory/inventoryRoutes");
+
+// Customer Auth, OTA Bookings, Notifications & Enquiries Routes
+const customerAuthRoutes = require("./src/routes/customer/customerAuthRoutes");
+const bookingRoutes = require("./src/routes/bookings/bookingRoutes");
+const notificationRoutes = require("./src/routes/notifications/notificationRoutes");
+const enquiryRoutes = require("./src/routes/enquiries/enquiryRoutes");
+const { whatsappWebhook } = require("./src/controllers/notifications/notificationWebhookController");
 
 // Upload Routes
 const uploadRoutes = require("./src/routes/upload/uploadRoutes");
@@ -146,6 +155,13 @@ app.use("/api/v1/rooms", roomRoutes);
 // Inventory, Calendar & Booking Controls (v1)
 app.use("/api/v1/inventory", inventoryRoutes);
 
+// Customer Verification, OTA Bookings, Notifications & Enquiries (v1)
+app.use("/api/v1/customer", customerAuthRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/enquiries", enquiryRoutes);
+app.post("/api/v1/webhooks/whatsapp", whatsappWebhook);
+
 // Direct File Upload & Media Storage (v1)
 const { ensureUploadDirectories } = require("./src/middlewares/uploadMiddleware");
 ensureUploadDirectories();
@@ -205,6 +221,9 @@ if (require.main === module) {
     initializePricingTables().catch(err => {
         logger.warn("Pricing tables initialization warning:", { error: err.message });
     });
+    initBookingTables().catch(err => {
+        logger.warn("Booking tables initialization warning:", { error: err.message });
+    });
 
     const port = env.PORT;
     const server = app.listen(port, () => {
@@ -232,4 +251,3 @@ if (require.main === module) {
 }
 
 module.exports = app;
-

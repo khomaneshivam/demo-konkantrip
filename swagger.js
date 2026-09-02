@@ -14,14 +14,18 @@ const { roomTags, roomPaths } = require("./src/docs/rooms.swagger");
 const { inventoryTags, inventoryPaths } = require("./src/docs/inventory.swagger");
 const { adminDashboardTags, adminDashboardPaths } = require("./src/docs/adminDashboard.swagger");
 const { employeeTags, employeePaths } = require("./src/docs/employees.swagger");
+const { customerAuthTags, customerAuthPaths } = require("./src/docs/customerAuth.swagger");
+const { bookingTags, bookingPaths } = require("./src/docs/bookings.swagger");
+const { notificationTags, notificationPaths } = require("./src/docs/notifications.swagger");
+const { enquiryTags, enquiryPaths } = require("./src/docs/enquiries.swagger");
 const uploadSwagger = require("./src/docs/upload.swagger");
 
 const swaggerSpec = {
     openapi: "3.0.3",
     info: {
-        title: "KonkanTrip Hospitality Platform API",
+        title: "KonkanTrip Hospitality & OTA Platform API",
         version: "1.0.0",
-        description: "Comprehensive REST API documentation for the KonkanTrip Hospitality Management System, covering Owners, Administrators, Lookups, Properties, Sub-resources, Rooms, Inventory, Direct File Uploads, Booking Controls, CRM Employees, and Role-Based Access Control (RBAC)."
+        description: "Comprehensive REST API documentation for the KonkanTrip Hospitality Management System, covering Customer Verification (Mobile/Email OTP), OTA Booking Creation & Atomic Inventory Reservation, WhatsApp & Email Notifications, Enquiries, Owners, Administrators, Properties, Rooms, Inventory, and CRM Employees."
     },
     servers: [
         {
@@ -30,6 +34,10 @@ const swaggerSpec = {
         }
     ],
     tags: [
+        ...customerAuthTags,
+        ...bookingTags,
+        ...enquiryTags,
+        ...notificationTags,
         ...authTags,
         ...masterLookupTags,
         ...amenityTags,
@@ -43,6 +51,10 @@ const swaggerSpec = {
         { name: "File Uploads", description: "Direct file upload, media storage and instant asset linking endpoints" }
     ],
     paths: {
+        ...customerAuthPaths,
+        ...bookingPaths,
+        ...enquiryPaths,
+        ...notificationPaths,
         ...authPaths,
         ...masterLookupPaths,
         ...amenityPaths,

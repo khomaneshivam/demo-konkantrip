@@ -260,7 +260,7 @@ const uploadRoomImageDirect = async (req, res) => {
                 room_id, room_image_type_id, image_title, image_description,
                 original_file_name, stored_file_name, file_extension, mime_type, file_size,
                 storage_provider, storage_bucket, storage_path, cdn_url, thumbnail_url,
-                is_cover_image, display_order, is_active, created_by
+                is_cover_image, display_order, is_active, uploaded_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
             [
                 roomId,

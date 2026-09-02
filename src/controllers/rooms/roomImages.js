@@ -126,7 +126,7 @@ const addRoomImage = async (req, res) => {
                 original_file_name, stored_file_name, file_extension, mime_type, file_size,
                 image_width, image_height, aspect_ratio, storage_provider, storage_bucket, storage_path,
                 cdn_url, thumbnail_url, webp_url, avif_url, is_cover_image, is_featured, is_primary,
-                is_active, display_order, image_tags, remarks, created_by
+                is_active, display_order, image_tags, remarks, uploaded_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 roomId, room_image_type_id, image_title || null, image_description || null, image_alt_text || null, image_caption || null,

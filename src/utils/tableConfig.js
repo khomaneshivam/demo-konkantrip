@@ -43,7 +43,7 @@ const tableConfig = {
 
     // Rooms
     rooms: { pk: 'room_id' },
-    room_images: { pk: 'image_id' },
+    room_images: { pk: 'room_image_id' },
     room_beds: { pk: 'room_id', isComposite: true },
     room_amenities: { pk: 'room_id', isComposite: true },
     room_facilities_mapping: { pk: 'room_id', isComposite: true },
